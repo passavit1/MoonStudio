@@ -39,9 +39,28 @@ export const parseTikTokCSV = (filePath: string): Promise<TikTokOrderRow[]> => {
 
 export const parseTikTokDate = (dateStr: string): Date | null => {
   if (!dateStr) return null;
-  // TikTok dates are often in format: "2024-03-01 10:00:00"
-  // Sometimes they have a "(GMT+07:00)" suffix which Date constructor might not like
+  // Remove timezone info like "(GMT+07:00)"
   const cleanedDate = dateStr.split(" (")[0].trim();
+
+  // Parse DD/MM/YYYY HH:MM:SS format
+  // Example: "12/03/2026 22:24:56"
+  const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s(\d{1,2}):(\d{2}):(\d{2})$/;
+  const match = cleanedDate.match(dateRegex);
+
+  if (match) {
+    const [, day, month, year, hour, minute, second] = match;
+    const date = new Date(
+      parseInt(year),
+      parseInt(month) - 1, // JavaScript months are 0-indexed
+      parseInt(day),
+      parseInt(hour),
+      parseInt(minute),
+      parseInt(second)
+    );
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  // Fallback for YYYY-MM-DD HH:MM:SS format (if data format changes)
   const date = new Date(cleanedDate);
   return isNaN(date.getTime()) ? null : date;
 };
