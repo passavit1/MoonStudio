@@ -6,11 +6,15 @@ import fs from "fs";
 
 export async function POST() {
   try {
-    const dataDir = path.join(process.cwd(), "data");
-    const files = fs.readdirSync(dataDir).filter((f) => f.endsWith(".csv"));
+    const dataDir = path.join(process.cwd(), "data", "tiktok");
+    // Filter for year-month format (e.g., 2026-01.csv)
+    // Skip income files (e.g., income-2026-01.xlsx) - not yet implemented
+    const files = fs
+      .readdirSync(dataDir)
+      .filter((f) => (f.endsWith(".csv") || f.endsWith(".xlsx")) && !f.startsWith("income-"));
 
     if (files.length === 0) {
-      return NextResponse.json({ error: "No CSV files found in /data" }, { status: 404 });
+      return NextResponse.json({ error: "No CSV files found in /data/tiktok (income files are not yet supported)" }, { status: 404 });
     }
 
     // Ensure TikTok platform exists

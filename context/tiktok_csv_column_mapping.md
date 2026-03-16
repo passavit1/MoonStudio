@@ -11,7 +11,11 @@ Complete mapping of TikTok Shop CSV columns to SQLite database tables. This docu
 
 ## CSV Structure
 
-**File Location:** `/data/*.csv` (e.g., `2026-03.csv`)
+**File Location:** `/data/tiktok/*.csv` or `/data/tiktok/*.xlsx` (e.g., `2026-03.csv`, `income-2026-01.xlsx`)
+
+**Supported File Formats:**
+- `year-month.csv` - Standard transaction format (e.g., `2026-01.csv`, `2026-03.csv`)
+- `income-year-month.xlsx` - Income/settlement format (e.g., `income-2026-01.xlsx`)
 
 **One Order = Multiple CSV Rows** if it contains multiple items
 - Example: Order ID `583049006971717596` appears 4 times (4 items in 1 order)
@@ -155,6 +159,14 @@ What You Actually Received = TBD (from settlement CSV) ❌
 ## Current Import Implementation
 
 **File:** `app/api/import-tiktok/route.ts`
+
+**Multi-Platform Support:**
+- Reads files from `/data/tiktok/` subdirectory
+- Supports both `.csv` and `.xlsx` file formats
+- Detects file format by extension and parses accordingly:
+  - CSV files use PapaParse
+  - XLSX files use xlsx library
+- Both formats are converted to the same order/item structure
 
 ### Order Calculation (Lines 46-72)
 ```typescript

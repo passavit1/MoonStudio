@@ -1,5 +1,6 @@
 import Papa from "papaparse";
 import fs from "fs";
+import * as XLSX from "xlsx";
 
 export interface TikTokOrderRow {
   "Order ID": string;
@@ -22,18 +23,39 @@ export interface TikTokOrderRow {
 }
 
 export const parseTikTokCSV = (filePath: string): Promise<TikTokOrderRow[]> => {
-  const csvFile = fs.readFileSync(filePath, "utf8");
   return new Promise((resolve, reject) => {
-    Papa.parse(csvFile, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        resolve(results.data as TikTokOrderRow[]);
-      },
-      error: (error: any) => {
-        reject(error);
-      },
-    });
+    try {
+      // Check file extension to determine format
+      const isXlsx = filePath.endsWith(".xlsx") || filePath.endsWith(".xlsm");
+
+      if (isXlsx) {
+        // Parse XLSX file - read the first sheet only
+        try {
+          const workbook = XLSX.readFile(filePath);
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const data = XLSX.utils.sheet_to_json<TikTokOrderRow>(worksheet);
+          resolve(data);
+        } catch (xlsxError) {
+          reject(new Error(`Failed to parse XLSX file: ${filePath}. Error: ${(xlsxError as Error).message}`));
+        }
+      } else {
+        // Parse CSV file
+        const csvFile = fs.readFileSync(filePath, "utf8");
+        Papa.parse(csvFile, {
+          header: true,
+          skipEmptyLines: true,
+          complete: (results) => {
+            resolve(results.data as TikTokOrderRow[]);
+          },
+          error: (error: any) => {
+            reject(error);
+          },
+        });
+      }
+    } catch (error) {
+      reject(new Error(`Error processing file: ${filePath}. Error: ${(error as Error).message}`));
+    }
   });
 };
 
