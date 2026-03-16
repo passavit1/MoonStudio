@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { X } from 'lucide-react';
+import { X, Copy, Check } from 'lucide-react';
 
 interface CancelledOrdersData {
   month: string;
@@ -15,6 +15,13 @@ interface CancelledOrdersChartProps {
 
 export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
   const [selectedMonth, setSelectedMonth] = useState<CancelledOrdersData | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  const handleCopyId = (orderId: string) => {
+    navigator.clipboard.writeText(orderId);
+    setCopiedId(orderId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   if (!data || data.length === 0) {
     return (
@@ -34,7 +41,7 @@ export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
     <>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h3 className="font-bold text-gray-900 mb-2">Failed Shipments by Month</h3>
-        <p className="text-xs text-gray-500 mb-6">Orders cancelled/returned AFTER shipping • Click bars to view order IDs</p>
+        <p className="text-xs text-gray-500 mb-6">Orders cancelled/returned AFTER shipping • Click bars to view details</p>
 
         <div className="flex gap-6 items-end">
           <svg
@@ -73,7 +80,6 @@ export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
                     height={barHeight}
                     fill={isSelected ? '#DC2626' : '#4472C4'}
                     rx="4"
-                    className="transition-colors"
                   />
                   {/* Value label */}
                   <text
@@ -119,33 +125,53 @@ export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
         </div>
       </div>
 
-      {/* Order Details Modal */}
+      {/* Order Details Modal - Floating Modal */}
       {selectedMonth && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[80vh] overflow-auto shadow-xl">
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+          <div
+            className="bg-white rounded-2xl max-w-2xl w-full max-h-[70vh] overflow-hidden shadow-2xl border border-gray-100 pointer-events-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 bg-gradient-to-r from-blue-50 to-blue-25 border-b border-gray-100 px-6 py-4 flex items-center justify-between">
               <div>
                 <h3 className="font-bold text-lg text-gray-900">Failed Shipments - {selectedMonth.month}</h3>
-                <p className="text-sm text-gray-500">{selectedMonth.count} order(s)</p>
+                <p className="text-sm text-gray-600 mt-1">
+                  <span className="font-semibold text-red-600">{selectedMonth.count}</span> cancelled/returned order(s)
+                </p>
               </div>
               <button
                 onClick={() => setSelectedMonth(null)}
-                className="p-1 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-white rounded-lg transition-colors"
               >
-                <X size={24} className="text-gray-400" />
+                <X size={20} className="text-gray-400" />
               </button>
             </div>
 
-            <div className="p-6">
-              <div className="space-y-2">
-                {selectedMonth.orderIds.map((orderId, idx) => (
-                  <div
-                    key={idx}
-                    className="p-3 bg-gray-50 rounded-lg border border-gray-100 font-mono text-sm text-gray-700 hover:bg-gray-100 transition-colors"
-                  >
-                    {orderId}
-                  </div>
-                ))}
+            {/* Content */}
+            <div className="overflow-y-auto" style={{ maxHeight: 'calc(70vh - 100px)' }}>
+              <div className="p-6">
+                <div className="space-y-2">
+                  {selectedMonth.orderIds.map((orderId, idx) => (
+                    <div
+                      key={idx}
+                      className="p-4 bg-gray-50 rounded-lg border border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors group"
+                    >
+                      <span className="font-mono text-sm text-gray-700">{orderId}</span>
+                      <button
+                        onClick={() => handleCopyId(orderId)}
+                        className="ml-3 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Copy order ID"
+                      >
+                        {copiedId === orderId ? (
+                          <Check size={18} className="text-green-600" />
+                        ) : (
+                          <Copy size={18} className="text-gray-400 hover:text-gray-600" />
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

@@ -93,22 +93,30 @@ export async function getCancelledOrdersByMonth() {
     },
   });
 
-  // Group by month
-  const monthlyData: { [key: string]: { count: number; orders: string[] } } = {};
+  // Group by month and year
+  const monthlyData: { [key: string]: { count: number; orders: string[]; year: number; monthNum: number } } = {};
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   orders.forEach(order => {
     if (order.createdTime) {
-      const month = order.createdTime.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit' });
-      if (!monthlyData[month]) {
-        monthlyData[month] = { count: 0, orders: [] };
+      const year = order.createdTime.getFullYear();
+      const monthNum = order.createdTime.getMonth();
+      const monthName = monthNames[monthNum];
+      const key = `${monthName} ${year}`;
+
+      if (!monthlyData[key]) {
+        monthlyData[key] = { count: 0, orders: [], year, monthNum };
       }
-      monthlyData[month].count++;
-      monthlyData[month].orders.push(order.externalOrderId);
+      monthlyData[key].count++;
+      monthlyData[key].orders.push(order.externalOrderId);
     }
   });
 
-  // Convert to array and sort by month
+  // Convert to array and sort by year and month
   return Object.entries(monthlyData)
-    .map(([month, data]) => ({ month, count: data.count, orderIds: data.orders }))
-    .sort((a, b) => a.month.localeCompare(b.month));
+    .map(([month, data]) => ({ month, count: data.count, orderIds: data.orders, year: data.year, monthNum: data.monthNum }))
+    .sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      return a.monthNum - b.monthNum;
+    });
 }
