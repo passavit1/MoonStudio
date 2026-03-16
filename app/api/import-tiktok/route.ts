@@ -41,13 +41,18 @@ export async function POST() {
       // Process each unique order
       for (const [orderId, orderRows] of ordersMap.entries()) {
         const firstRow = orderRows[0];
-        
+
+        // Calculate subtotal as sum of all items (for multi-item orders)
+        const itemSubtotal = orderRows.reduce((sum, row) => {
+          return sum + parseCurrency(row["SKU Subtotal After Discount"]);
+        }, 0);
+
         // Create or update the order
         const order = await prisma.order.upsert({
           where: { externalOrderId: orderId },
           update: {
             status: firstRow["Order Status"],
-            subtotal: parseCurrency(firstRow["SKU Subtotal After Discount"]),
+            subtotal: itemSubtotal,
             shippingFee: parseCurrency(firstRow["Shipping Fee"]),
             orderAmount: parseCurrency(firstRow["Order Amount"]),
             buyerUsername: firstRow["Buyer Username"],
@@ -60,7 +65,7 @@ export async function POST() {
             platformId: platform.id,
             externalOrderId: orderId,
             status: firstRow["Order Status"],
-            subtotal: parseCurrency(firstRow["SKU Subtotal After Discount"]),
+            subtotal: itemSubtotal,
             shippingFee: parseCurrency(firstRow["Shipping Fee"]),
             orderAmount: parseCurrency(firstRow["Order Amount"]),
             buyerUsername: firstRow["Buyer Username"],
