@@ -75,29 +75,40 @@ export async function getAllProductsSales() {
 }
 
 export async function getCancelledOrdersByMonth() {
+  // Get orders with BOTH cancelationType AND shippedTime (failed shipments)
   const orders = await prisma.order.findMany({
     where: {
       cancelationType: {
         not: null,
       },
+      shippedTime: {
+        not: null,
+      },
     },
     select: {
+      externalOrderId: true,
       createdTime: true,
+      cancelationType: true,
+      shippedTime: true,
     },
   });
 
   // Group by month
-  const monthlyData: { [key: string]: number } = {};
+  const monthlyData: { [key: string]: { count: number; orders: string[] } } = {};
 
   orders.forEach(order => {
     if (order.createdTime) {
       const month = order.createdTime.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit' });
-      monthlyData[month] = (monthlyData[month] || 0) + 1;
+      if (!monthlyData[month]) {
+        monthlyData[month] = { count: 0, orders: [] };
+      }
+      monthlyData[month].count++;
+      monthlyData[month].orders.push(order.externalOrderId);
     }
   });
 
   // Convert to array and sort by month
   return Object.entries(monthlyData)
-    .map(([month, count]) => ({ month, count }))
+    .map(([month, data]) => ({ month, count: data.count, orderIds: data.orders }))
     .sort((a, b) => a.month.localeCompare(b.month));
 }
