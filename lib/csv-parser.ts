@@ -42,13 +42,13 @@ export const parseTikTokDate = (dateStr: string): Date | null => {
   // Remove timezone info like "(GMT+07:00)"
   const cleanedDate = dateStr.split(" (")[0].trim();
 
-  // Parse DD/MM/YYYY HH:MM:SS format
-  // Example: "12/03/2026 22:24:56"
-  const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s(\d{1,2}):(\d{2}):(\d{2})$/;
+  // Parse DD/MM/YYYY HH:MM:SS format (with optional time)
+  // Example: "12/03/2026 22:24:56" or "12/03/2026"
+  const dateRegex = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s(\d{1,2}):(\d{2}):(\d{2}))?$/;
   const match = cleanedDate.match(dateRegex);
 
   if (match) {
-    const [, day, month, year, hour, minute, second] = match;
+    const [, day, month, year, hour = "0", minute = "0", second = "0"] = match;
     const date = new Date(
       parseInt(year),
       parseInt(month) - 1, // JavaScript months are 0-indexed

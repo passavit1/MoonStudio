@@ -11,9 +11,10 @@ interface CancelledOrdersData {
 
 interface CancelledOrdersChartProps {
   data: CancelledOrdersData[];
+  currentMonthFailures: number;
 }
 
-export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
+export function CancelledOrdersChart({ data, currentMonthFailures }: CancelledOrdersChartProps) {
   const [selectedMonth, setSelectedMonth] = useState<CancelledOrdersData | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -120,8 +121,8 @@ export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
               </p>
             </div>
             <div>
-              <p className="text-xs font-semibold uppercase text-gray-500 tracking-wider">Months with Failures</p>
-              <p className="text-2xl font-bold text-blue-600 mt-1">{data.length}</p>
+              <p className="text-xs font-semibold uppercase text-gray-500 tracking-wider">Failed Shipments This Month</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">{currentMonthFailures}</p>
             </div>
           </div>
         </div>

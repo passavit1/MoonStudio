@@ -120,3 +120,26 @@ export async function getCancelledOrdersByMonth() {
       return a.monthNum - b.monthNum;
     });
 }
+
+export async function getCurrentMonthFailedShipments() {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  const count = await prisma.order.count({
+    where: {
+      cancelationType: {
+        not: null,
+      },
+      shippedTime: {
+        not: null,
+      },
+      createdTime: {
+        gte: new Date(currentYear, currentMonth, 1),
+        lt: new Date(currentYear, currentMonth + 1, 1),
+      },
+    },
+  });
+
+  return count;
+}
