@@ -72,6 +72,18 @@ export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
 
               return (
                 <g key={idx} onClick={() => setSelectedMonth(item)} style={{ cursor: 'pointer' }}>
+                  {/* Value label above bar */}
+                  <text
+                    x={x + 20}
+                    y={y - 15}
+                    textAnchor="middle"
+                    fontSize="16"
+                    fontWeight="bold"
+                    fill="#DC2626"
+                  >
+                    {item.count}
+                  </text>
+
                   {/* Bar */}
                   <rect
                     x={x}
@@ -81,18 +93,8 @@ export function CancelledOrdersChart({ data }: CancelledOrdersChartProps) {
                     fill={isSelected ? '#DC2626' : '#4472C4'}
                     rx="4"
                   />
-                  {/* Value label */}
-                  <text
-                    x={x + 20}
-                    y={y - 8}
-                    textAnchor="middle"
-                    fontSize="14"
-                    fontWeight="bold"
-                    fill="#1f2937"
-                  >
-                    {item.count}
-                  </text>
-                  {/* Month label */}
+
+                  {/* Month label below bar */}
                   <text
                     x={x + 20}
                     y={chartHeight + 20}
