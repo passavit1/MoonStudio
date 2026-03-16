@@ -73,3 +73,31 @@ export async function getAllProductsSales() {
     totalRevenue: p._sum.subtotal || 0,
   }));
 }
+
+export async function getCancelledOrdersByMonth() {
+  const orders = await prisma.order.findMany({
+    where: {
+      cancelationType: {
+        not: null,
+      },
+    },
+    select: {
+      createdTime: true,
+    },
+  });
+
+  // Group by month
+  const monthlyData: { [key: string]: number } = {};
+
+  orders.forEach(order => {
+    if (order.createdTime) {
+      const month = order.createdTime.toLocaleDateString('en-US', { year: 'numeric', month: '2-digit' });
+      monthlyData[month] = (monthlyData[month] || 0) + 1;
+    }
+  });
+
+  // Convert to array and sort by month
+  return Object.entries(monthlyData)
+    .map(([month, count]) => ({ month, count }))
+    .sort((a, b) => a.month.localeCompare(b.month));
+}

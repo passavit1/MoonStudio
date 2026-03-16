@@ -52,6 +52,7 @@ export async function POST() {
           where: { externalOrderId: orderId },
           update: {
             status: firstRow["Order Status"],
+            cancelationType: firstRow["Cancelation/Return Type"] || null,
             subtotal: itemSubtotal,
             shippingFee: parseCurrency(firstRow["Shipping Fee"]),
             orderAmount: parseCurrency(firstRow["Order Amount"]),
@@ -60,11 +61,13 @@ export async function POST() {
             paymentMethod: firstRow["Payment Method"],
             createdTime: parseTikTokDate(firstRow["Created Time"]),
             paidTime: parseTikTokDate(firstRow["Paid Time"]),
+            shippedTime: parseTikTokDate(firstRow["Shipped Time"]),
           },
           create: {
             platformId: platform.id,
             externalOrderId: orderId,
             status: firstRow["Order Status"],
+            cancelationType: firstRow["Cancelation/Return Type"] || null,
             subtotal: itemSubtotal,
             shippingFee: parseCurrency(firstRow["Shipping Fee"]),
             orderAmount: parseCurrency(firstRow["Order Amount"]),
@@ -73,6 +76,7 @@ export async function POST() {
             paymentMethod: firstRow["Payment Method"],
             createdTime: parseTikTokDate(firstRow["Created Time"]),
             paidTime: parseTikTokDate(firstRow["Paid Time"]),
+            shippedTime: parseTikTokDate(firstRow["Shipped Time"]),
           },
         });
 

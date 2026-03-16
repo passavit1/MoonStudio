@@ -23,6 +23,7 @@ model Order {
   platformId      Int
   externalOrderId String      @unique // ID from the CSV
   status          String      // e.g., "Completed", "Cancelled", "To Ship"
+  cancelationType String?     // e.g., "Cancel", "Return"
   subtotal        Float       @default(0)
   shippingFee     Float       @default(0)
   orderAmount     Float       @default(0) // Total after discounts
@@ -31,6 +32,7 @@ model Order {
   paymentMethod   String?
   createdTime     DateTime?
   paidTime        DateTime?
+  shippedTime     DateTime?   // When order was shipped
   items           OrderItem[]
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
