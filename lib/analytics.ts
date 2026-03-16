@@ -51,3 +51,25 @@ export async function getRecentOrders(limit = 10) {
     },
   });
 }
+
+export async function getAllProductsSales() {
+  const products = await prisma.orderItem.groupBy({
+    by: ["productName", "variation"],
+    _sum: {
+      quantity: true,
+      subtotal: true,
+    },
+    orderBy: {
+      _sum: {
+        quantity: "desc",
+      },
+    },
+  });
+
+  return products.map(p => ({
+    name: p.productName,
+    variation: p.variation,
+    unitsSold: p._sum.quantity || 0,
+    totalRevenue: p._sum.subtotal || 0,
+  }));
+}

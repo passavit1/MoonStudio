@@ -1,4 +1,5 @@
 import { LayoutDashboard, ShoppingCart, TrendingUp, Package } from "lucide-react";
+import Link from "next/link";
 import { getDashboardSummary } from "@/lib/analytics";
 import { ImportButton } from "@/components/ImportButton";
 
@@ -22,7 +23,15 @@ export default async function Home() {
               <p className="text-gray-500">Sales & 3D Printing Analytics</p>
             </div>
           </div>
-          <ImportButton />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/products"
+              className="px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors"
+            >
+              View Products
+            </Link>
+            <ImportButton />
+          </div>
         </div>
 
         {/* Stats Grid */}
