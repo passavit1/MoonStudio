@@ -31,6 +31,12 @@ export default async function Home() {
           </div>
           <div className="flex items-center gap-3">
             <Link
+              href="/reports"
+              className="px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg hover:bg-purple-600 transition-colors"
+            >
+              Tax & Reports
+            </Link>
+            <Link
               href="/products"
               className="px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors"
             >

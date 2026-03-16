@@ -1,12 +1,26 @@
 import { prisma } from "./prisma";
 
 export async function getDashboardSummary() {
-  const totalOrders = await prisma.order.count();
-  
-  // Only sum "Completed" or similar status if needed, but for now we sum all orderAmount
+  // Only count orders that were NOT cancelled before shipping (ignore customer cancellations with no fee)
+  const totalOrders = await prisma.order.count({
+    where: {
+      OR: [
+        { cancelationType: null }, // Not cancelled
+        { shippedTime: { not: null } }, // OR was shipped (we paid the fee even if later cancelled)
+      ],
+    },
+  });
+
+  // Sum revenue from valid orders only (same filtering as Reports)
   const totalRevenueResult = await prisma.order.aggregate({
     _sum: {
       orderAmount: true,
+    },
+    where: {
+      OR: [
+        { cancelationType: null },
+        { shippedTime: { not: null } },
+      ],
     },
   });
 

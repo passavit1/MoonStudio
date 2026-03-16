@@ -18,24 +18,25 @@ model Platform {
 }
 
 model Order {
-  id              Int         @id @default(autoincrement())
-  platform        Platform    @relation(fields: [platformId], references: [id])
-  platformId      Int
-  externalOrderId String      @unique // ID from the CSV
-  status          String      // e.g., "Completed", "Cancelled", "To Ship"
-  cancelationType String?     // e.g., "Cancel", "Return"
-  subtotal        Float       @default(0)
-  shippingFee     Float       @default(0)
-  orderAmount     Float       @default(0) // Total after discounts
-  buyerUsername   String?
-  province        String?
-  paymentMethod   String?
-  createdTime     DateTime?
-  paidTime        DateTime?
-  shippedTime     DateTime?   // When order was shipped
-  items           OrderItem[]
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  id                      Int         @id @default(autoincrement())
+  platform                Platform    @relation(fields: [platformId], references: [id])
+  platformId              Int
+  externalOrderId         String      @unique // ID from the CSV
+  status                  String      // e.g., "Completed", "Cancelled", "To Ship"
+  cancelationType         String?     // e.g., "Cancel", "Return"
+  subtotalBeforeDiscount  Float       @default(0) // Real product value (sum of SKU Subtotal Before Discount)
+  subtotal                Float       @default(0) // Sum of SKU Subtotal After Discount (what customer sees)
+  shippingFee             Float       @default(0)
+  orderAmount             Float       @default(0) // Total after discounts (what customer paid)
+  buyerUsername           String?
+  province                String?
+  paymentMethod           String?
+  createdTime             DateTime?
+  paidTime                DateTime?
+  shippedTime             DateTime?   // When order was shipped
+  items                   OrderItem[]
+  createdAt               DateTime    @default(now())
+  updatedAt               DateTime    @updatedAt
 }
 
 model OrderItem {

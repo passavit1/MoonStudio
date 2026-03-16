@@ -47,12 +47,18 @@ export async function POST() {
           return sum + parseCurrency(row["SKU Subtotal After Discount"]);
         }, 0);
 
+        // Calculate real product value (before discounts)
+        const subtotalBeforeDiscount = orderRows.reduce((sum, row) => {
+          return sum + parseCurrency(row["SKU Subtotal Before Discount"]);
+        }, 0);
+
         // Create or update the order
         const order = await prisma.order.upsert({
           where: { externalOrderId: orderId },
           update: {
             status: firstRow["Order Status"],
             cancelationType: firstRow["Cancelation/Return Type"] || null,
+            subtotalBeforeDiscount: subtotalBeforeDiscount,
             subtotal: itemSubtotal,
             shippingFee: parseCurrency(firstRow["Shipping Fee"]),
             orderAmount: parseCurrency(firstRow["Order Amount"]),
@@ -68,6 +74,7 @@ export async function POST() {
             externalOrderId: orderId,
             status: firstRow["Order Status"],
             cancelationType: firstRow["Cancelation/Return Type"] || null,
+            subtotalBeforeDiscount: subtotalBeforeDiscount,
             subtotal: itemSubtotal,
             shippingFee: parseCurrency(firstRow["Shipping Fee"]),
             orderAmount: parseCurrency(firstRow["Order Amount"]),
