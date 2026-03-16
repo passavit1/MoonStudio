@@ -1,8 +1,9 @@
 import { LayoutDashboard, ShoppingCart, TrendingUp, Package } from "lucide-react";
 import Link from "next/link";
-import { getDashboardSummary, getCancelledOrdersByMonth, getCurrentMonthFailedShipments } from "@/lib/analytics";
+import { getDashboardSummary, getCancelledOrdersByMonth, getCurrentMonthFailedShipments, getSuccessfulOrdersByMonth, getCurrentMonthSuccessfulOrders } from "@/lib/analytics";
 import { ImportButton } from "@/components/ImportButton";
 import { CancelledOrdersChart } from "@/components/CancelledOrdersChart";
+import { SuccessfulOrdersChart } from "@/components/SuccessfulOrdersChart";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +11,8 @@ export default async function Home() {
   const summary = await getDashboardSummary();
   const cancelledOrders = await getCancelledOrdersByMonth();
   const currentMonthFailures = await getCurrentMonthFailedShipments();
+  const successfulOrders = await getSuccessfulOrdersByMonth();
+  const currentMonthSuccesses = await getCurrentMonthSuccessfulOrders();
 
   return (
     <div className="min-h-screen bg-gray-50/50 p-6 sm:p-12 font-sans">
@@ -75,6 +78,9 @@ export default async function Home() {
 
         {/* Charts Grid */}
         <div className="grid grid-cols-1 gap-6">
+          {/* Successful Orders Chart */}
+          <SuccessfulOrdersChart data={successfulOrders} currentMonthSuccesses={currentMonthSuccesses} />
+
           {/* Cancelled Orders Chart */}
           <CancelledOrdersChart data={cancelledOrders} currentMonthFailures={currentMonthFailures} />
         </div>
