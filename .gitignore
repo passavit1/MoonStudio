@@ -21,22 +21,6 @@ build/
 *~
 .DS_Store
 
-# Prisma
-/generated/prisma
-
-# Logs
-logs/
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
 # Misc
 .claude/
-.gemini/
 tsconfig.tsbuildinfo
