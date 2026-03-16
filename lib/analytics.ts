@@ -1,0 +1,53 @@
+import { prisma } from "./prisma";
+
+export async function getDashboardSummary() {
+  const totalOrders = await prisma.order.count();
+  
+  // Only sum "Completed" or similar status if needed, but for now we sum all orderAmount
+  const totalRevenueResult = await prisma.order.aggregate({
+    _sum: {
+      orderAmount: true,
+    },
+  });
+
+  const uniqueProducts = await prisma.orderItem.groupBy({
+    by: ["productName"],
+  });
+
+  const topProducts = await prisma.orderItem.groupBy({
+    by: ["productName", "variation"],
+    _sum: {
+      quantity: true,
+    },
+    orderBy: {
+      _sum: {
+        quantity: "desc",
+      },
+    },
+    take: 5,
+  });
+
+  return {
+    totalOrders,
+    totalRevenue: totalRevenueResult._sum.orderAmount || 0,
+    uniqueProductCount: uniqueProducts.length,
+    topProducts: topProducts.map(p => ({
+      name: p.productName,
+      variation: p.variation,
+      count: p._sum.quantity || 0,
+    })),
+  };
+}
+
+export async function getRecentOrders(limit = 10) {
+  return await prisma.order.findMany({
+    take: limit,
+    orderBy: {
+      createdTime: "desc",
+    },
+    include: {
+      platform: true,
+      items: true,
+    },
+  });
+}
