@@ -8,7 +8,7 @@
 
 > **Context:** I want to implement a new feature for MoonStudio Sales Dashboard. 
 > 
-> **Prerequisite:** Before you start, please read all files in the `.gemini/context/` directory to understand the project's current state, tech stack, and goals.
+> **Prerequisite:** Before you start, please read all files in the `./context/` directory to understand the project's current state, tech stack, and goals.
 > 
 > **Feature Name:** [e.g., Shopee CSV Support / Revenue Charts]
 > 
