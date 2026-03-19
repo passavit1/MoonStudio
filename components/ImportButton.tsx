@@ -91,64 +91,30 @@ export function ImportButton() {
       }
     })();
 
-    // Connect to SSE stream for progress updates AFTER sync starts
-    setTimeout(() => {
-      let eventSource: EventSource | null = null;
-      let retryCount = 0;
-      const maxRetries = 3;
+    // Poll for progress updates every 500ms
+    const pollInterval = setInterval(async () => {
+      try {
+        const response = await fetch("/api/import-tiktok/progress");
+        const data = (await response.json()) as ProgressUpdate;
 
-      const connectProgressStream = () => {
-        try {
-          console.log("[ImportButton] Connecting to progress stream...");
-          console.log("[ImportButton] Creating EventSource for /api/import-tiktok/progress");
-          eventSource = new EventSource("/api/import-tiktok/progress");
-          console.log("[ImportButton] EventSource created, readyState:", eventSource.readyState);
+        console.log("[ImportButton] Progress poll:", {
+          file: data.currentFile,
+          processed: data.processedCount,
+          total: data.totalCount,
+          status: data.status,
+        });
 
-          eventSource.onopen = () => {
-            console.log("[ImportButton] ✅ Progress stream OPEN");
-            retryCount = 0; // Reset retry count on successful connection
-          };
+        setProgress(data);
 
-          eventSource.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data) as ProgressUpdate;
-              console.log("[ImportButton] Progress update:", {
-                file: data.currentFile,
-                processed: data.processedCount,
-                total: data.totalCount,
-                status: data.status,
-              });
-              setProgress(data);
-
-              // Close stream when done
-              if (data.status === "completed" || data.status === "failed") {
-                console.log("[ImportButton] Sync complete, closing stream");
-                if (eventSource) eventSource.close();
-              }
-            } catch (error) {
-              console.error("[ImportButton] Error parsing progress:", error);
-            }
-          };
-
-          eventSource.onerror = (error) => {
-            console.error("[ImportButton] Progress stream error:", error);
-            if (eventSource) eventSource.close();
-
-            // Retry connection for temporary errors
-            if (retryCount < maxRetries) {
-              retryCount++;
-              console.log(`[ImportButton] Retrying connection (${retryCount}/${maxRetries})...`);
-              setTimeout(connectProgressStream, 1000 * retryCount); // Exponential backoff
-            }
-          };
-        } catch (error) {
-          console.error("[ImportButton] Failed to connect to progress stream:", error);
+        // Stop polling when sync is done
+        if (data.status === "completed" || data.status === "failed") {
+          console.log("[ImportButton] Sync complete, stopping poll");
+          clearInterval(pollInterval);
         }
-      };
-
-      // Start progress stream
-      connectProgressStream();
-    }, 50); // Small delay to let sync initialize first
+      } catch (error) {
+        console.error("[ImportButton] Error polling progress:", error);
+      }
+    }, 500);
   };
 
   const closeModal = () => {
