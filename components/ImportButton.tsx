@@ -67,43 +67,60 @@ export function ImportButton() {
 
     console.log("[ImportButton] Starting import...");
 
-    // Connect to SSE stream for progress updates FIRST
-    try {
-      console.log("[ImportButton] Connecting to progress stream...");
-      const eventSource = new EventSource("/api/import-tiktok/progress");
+    // Connect to SSE stream for progress updates
+    let eventSource: EventSource | null = null;
+    let retryCount = 0;
+    const maxRetries = 3;
 
-      eventSource.onopen = () => {
-        console.log("[ImportButton] Progress stream connected");
-      };
+    const connectProgressStream = () => {
+      try {
+        console.log("[ImportButton] Connecting to progress stream...");
+        eventSource = new EventSource("/api/import-tiktok/progress");
 
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as ProgressUpdate;
-          console.log("[ImportButton] Progress update:", {
-            file: data.currentFile,
-            processed: data.processedCount,
-            total: data.totalCount,
-            status: data.status,
-          });
-          setProgress(data);
+        eventSource.onopen = () => {
+          console.log("[ImportButton] Progress stream connected");
+          retryCount = 0; // Reset retry count on successful connection
+        };
 
-          // Close stream when done
-          if (data.status !== "processing") {
-            console.log("[ImportButton] Sync complete, closing stream");
-            eventSource.close();
+        eventSource.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data) as ProgressUpdate;
+            console.log("[ImportButton] Progress update:", {
+              file: data.currentFile,
+              processed: data.processedCount,
+              total: data.totalCount,
+              status: data.status,
+            });
+            setProgress(data);
+
+            // Close stream when done
+            if (data.status === "completed" || data.status === "failed") {
+              console.log("[ImportButton] Sync complete, closing stream");
+              if (eventSource) eventSource.close();
+            }
+          } catch (error) {
+            console.error("[ImportButton] Error parsing progress:", error);
           }
-        } catch (error) {
-          console.error("[ImportButton] Error parsing progress:", error);
-        }
-      };
+        };
 
-      eventSource.onerror = () => {
-        console.error("[ImportButton] Progress stream error");
-        eventSource.close();
-      };
-    } catch (error) {
-      console.error("[ImportButton] Failed to connect to progress stream:", error);
-    }
+        eventSource.onerror = (error) => {
+          console.error("[ImportButton] Progress stream error:", error);
+          if (eventSource) eventSource.close();
+
+          // Retry connection for temporary errors
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log(`[ImportButton] Retrying connection (${retryCount}/${maxRetries})...`);
+            setTimeout(connectProgressStream, 1000 * retryCount); // Exponential backoff
+          }
+        };
+      } catch (error) {
+        console.error("[ImportButton] Failed to connect to progress stream:", error);
+      }
+    };
+
+    // Start progress stream
+    connectProgressStream();
 
     // Start the import AFTER stream is ready
     setTimeout(async () => {

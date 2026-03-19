@@ -5,70 +5,58 @@ export const dynamic = "force-dynamic";
 export function GET() {
   const currentProgress = getProgress();
 
-  // If no sync is in progress, return current state immediately
-  if (!currentProgress) {
-    return new Response(
-      JSON.stringify({
-        currentFile: "",
-        processedCount: 0,
-        totalCount: 0,
-        status: "idle",
-        processedFiles: [],
-        pendingFiles: [],
-      }),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-        },
-      }
-    );
-  }
-
-  // If sync finished, return final state
-  if (currentProgress.status !== "processing") {
-    return new Response(
-      JSON.stringify(currentProgress),
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "Cache-Control": "no-cache",
-        },
-      }
-    );
-  }
+  console.log("[ProgressAPI] GET request - current status:", currentProgress?.status || "idle");
 
   // Stream progress updates via Server-Sent Events
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     start(controller) {
-      // Send initial progress
-      controller.enqueue(
-        encoder.encode(
-          `data: ${JSON.stringify(currentProgress)}\n\n`
-        )
-      );
+      // Send initial progress (or idle state)
+      const initialState = currentProgress || {
+        currentFile: "",
+        processedCount: 0,
+        totalCount: 0,
+        status: "idle",
+        timestamp: Date.now(),
+        processedFiles: [],
+        pendingFiles: [],
+      };
+
+      console.log("[ProgressAPI] Sending initial state:", initialState.status);
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(initialState)}\n\n`));
+
+      // If no sync in progress, close immediately
+      if (!currentProgress || currentProgress.status !== "processing") {
+        console.log("[ProgressAPI] No active sync, closing stream");
+        setTimeout(() => controller.close(), 100);
+        return;
+      }
 
       // Subscribe to progress updates
       const unsubscribe = subscribe((progress) => {
         try {
-          controller.enqueue(
-            encoder.encode(`data: ${JSON.stringify(progress)}\n\n`)
-          );
+          console.log("[ProgressAPI] Streaming progress:", {
+            file: progress.currentFile,
+            processed: progress.processedCount,
+            status: progress.status,
+          });
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(progress)}\n\n`));
 
           // Close stream when completed or failed
           if (progress.status !== "processing") {
-            setTimeout(() => controller.close(), 1000);
+            console.log("[ProgressAPI] Sync finished, closing stream");
+            setTimeout(() => controller.close(), 500);
           }
         } catch (error) {
-          console.error("Error streaming progress:", error);
+          console.error("[ProgressAPI] Error streaming progress:", error);
           controller.close();
         }
       });
 
       // Handle client disconnect
       return () => {
+        console.log("[ProgressAPI] Client disconnected");
         unsubscribe();
       };
     },
@@ -79,6 +67,7 @@ export function GET() {
       "Content-Type": "text/event-stream",
       "Cache-Control": "no-cache",
       Connection: "keep-alive",
+      "X-Accel-Buffering": "no",
     },
   });
 }
