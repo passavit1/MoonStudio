@@ -27,9 +27,20 @@ export async function POST() {
     let totalOrdersImported = 0;
     let totalItemsImported = 0;
     let totalSettlementsUpdated = 0;
+    let filesSkipped = 0;
+
+    // Get imported file metadata
+    const importedMetadata = await prisma.fileImportMetadata.findMany();
+    const importedFileNames = new Set(importedMetadata.map(m => m.fileName));
 
     // Step 1: Import sales data from CSV files
     for (const file of salesFiles) {
+      // Skip if already imported (unless you need to re-import)
+      if (importedFileNames.has(file)) {
+        filesSkipped++;
+        console.log(`Skipping already imported file: ${file}`);
+        continue;
+      }
       const filePath = path.join(dataDir, file);
       const rows = await parseTikTokCSV(filePath);
 
@@ -95,14 +106,25 @@ export async function POST() {
 
         totalOrdersImported++;
 
-        // Delete existing items for this order and recreate them (simpler than upserting items)
-        await prisma.orderItem.deleteMany({
-          where: { orderId: order.id },
-        });
-
+        // Upsert items instead of delete + recreate (more efficient)
         for (const itemRow of orderRows) {
-          await prisma.orderItem.create({
-            data: {
+          await prisma.orderItem.upsert({
+            where: {
+              orderId_skuId: {
+                orderId: order.id,
+                skuId: itemRow["SKU ID"],
+              },
+            },
+            update: {
+              productName: itemRow["Product Name"],
+              variation: itemRow["Variation"],
+              quantity: parseInt(itemRow["Quantity"]) || 1,
+              originalPrice: parseCurrency(itemRow["SKU Unit Original Price"]),
+              platformDiscount: parseCurrency(itemRow["SKU Platform Discount"]),
+              sellerDiscount: parseCurrency(itemRow["SKU Seller Discount"]),
+              subtotal: parseCurrency(itemRow["SKU Subtotal After Discount"]),
+            },
+            create: {
               orderId: order.id,
               skuId: itemRow["SKU ID"],
               productName: itemRow["Product Name"],
@@ -117,13 +139,27 @@ export async function POST() {
           totalItemsImported++;
         }
       }
+
+      // Track file import
+      await prisma.fileImportMetadata.upsert({
+        where: { fileName: file },
+        update: { lastImportedAt: new Date(), recordCount: ordersMap.size, status: "COMPLETED" },
+        create: { fileName: file, recordCount: ordersMap.size, status: "COMPLETED" },
+      });
     }
 
     // Step 2: Import settlement data from income files
     for (const file of incomeFiles) {
+      // Skip if already imported
+      if (importedFileNames.has(file)) {
+        filesSkipped++;
+        console.log(`Skipping already imported file: ${file}`);
+        continue;
+      }
       const filePath = path.join(dataDir, file);
       const rows = await parseIncomeFile(filePath);
 
+      let settlementsInFile = 0;
       for (const row of rows) {
         const orderId = row["Order/adjustment ID"];
         if (!orderId) continue;
@@ -137,20 +173,30 @@ export async function POST() {
             data: { settlementAmount },
           });
           totalSettlementsUpdated++;
+          settlementsInFile++;
         } catch (error) {
           // Order might not exist yet, silently skip but don't count as success
           console.log(`Settlement skipped for order ${orderId}: order not found in database`);
         }
       }
+
+      // Track file import
+      await prisma.fileImportMetadata.upsert({
+        where: { fileName: file },
+        update: { lastImportedAt: new Date(), recordCount: settlementsInFile, status: "COMPLETED" },
+        create: { fileName: file, recordCount: settlementsInFile, status: "COMPLETED" },
+      });
     }
 
     return NextResponse.json({
       success: true,
-      message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} sales files. Updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files.`,
+      message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} sales files. Updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files. Skipped ${filesSkipped} already-imported files.`,
       stats: {
         ordersImported: totalOrdersImported,
         itemsImported: totalItemsImported,
         settlementsUpdated: totalSettlementsUpdated,
+        filesSkipped,
+        totalFilesProcessed: salesFiles.length + incomeFiles.length,
       },
     });
   } catch (error: any) {

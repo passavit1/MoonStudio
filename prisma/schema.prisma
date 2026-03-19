@@ -54,4 +54,17 @@ model OrderItem {
   subtotal        Float    @default(0)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+
+  @@unique([orderId, skuId])
+}
+
+model FileImportMetadata {
+  id               Int      @id @default(autoincrement())
+  fileName         String   @unique
+  lastImportedAt   DateTime @default(now()) @updatedAt
+  recordCount      Int      @default(0)
+  status           String   @default("COMPLETED") // PENDING, COMPLETED, FAILED
+  errorMessage     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
