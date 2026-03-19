@@ -6,7 +6,7 @@ export function GET() {
   const currentProgress = getProgress();
 
   // If no sync is in progress, return current state immediately
-  if (!currentProgress || currentProgress.status !== "processing") {
+  if (!currentProgress) {
     return new Response(
       JSON.stringify({
         currentFile: "",
@@ -16,6 +16,19 @@ export function GET() {
         processedFiles: [],
         pendingFiles: [],
       }),
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "no-cache",
+        },
+      }
+    );
+  }
+
+  // If sync finished, return final state
+  if (currentProgress.status !== "processing") {
+    return new Response(
+      JSON.stringify(currentProgress),
       {
         headers: {
           "Content-Type": "application/json",

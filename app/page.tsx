@@ -83,7 +83,7 @@ export default async function Home() {
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Successful Orders Chart */}
           <SuccessfulOrdersChart data={successfulOrders} currentMonthSuccesses={currentMonthSuccesses} />
 

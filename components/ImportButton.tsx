@@ -24,12 +24,66 @@ export function ImportButton() {
     setLoading(true);
     setStatus(null);
     setShowModal(true);
-    setProgress(null);
 
-    // Start the import
-    fetch("/api/import-tiktok", { method: "POST" })
-      .then(async (response) => {
+    // Set initial progress state
+    setProgress({
+      currentFile: "",
+      processedCount: 0,
+      totalCount: 0,
+      status: "processing",
+      timestamp: Date.now(),
+      processedFiles: [],
+      pendingFiles: [],
+    });
+
+    console.log("[ImportButton] Starting import...");
+
+    // Connect to SSE stream for progress updates FIRST
+    try {
+      console.log("[ImportButton] Connecting to progress stream...");
+      const eventSource = new EventSource("/api/import-tiktok/progress");
+
+      eventSource.onopen = () => {
+        console.log("[ImportButton] Progress stream connected");
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data) as ProgressUpdate;
+          console.log("[ImportButton] Progress update:", {
+            file: data.currentFile,
+            processed: data.processedCount,
+            total: data.totalCount,
+            status: data.status,
+          });
+          setProgress(data);
+
+          // Close stream when done
+          if (data.status !== "processing") {
+            console.log("[ImportButton] Sync complete, closing stream");
+            eventSource.close();
+          }
+        } catch (error) {
+          console.error("[ImportButton] Error parsing progress:", error);
+        }
+      };
+
+      eventSource.onerror = () => {
+        console.error("[ImportButton] Progress stream error");
+        eventSource.close();
+      };
+    } catch (error) {
+      console.error("[ImportButton] Failed to connect to progress stream:", error);
+    }
+
+    // Start the import AFTER stream is ready
+    setTimeout(async () => {
+      console.log("[ImportButton] Sending import request...");
+      try {
+        const response = await fetch("/api/import-tiktok", { method: "POST" });
         const data = await response.json();
+
+        console.log("[ImportButton] Import response:", data);
 
         if (data.success) {
           setStatus({ type: "success", message: data.message });
@@ -38,39 +92,13 @@ export function ImportButton() {
         } else {
           setStatus({ type: "error", message: data.error || "Import failed" });
         }
-      })
-      .catch((error) => {
+      } catch (error) {
+        console.error("[ImportButton] Import error:", error);
         setStatus({ type: "error", message: "Failed to connect to the server" });
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
-
-    // Connect to SSE stream for progress updates
-    try {
-      const eventSource = new EventSource("/api/import-tiktok/progress");
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data) as ProgressUpdate;
-          setProgress(data);
-
-          // Close stream when done
-          if (data.status !== "processing") {
-            eventSource.close();
-          }
-        } catch (error) {
-          console.error("Error parsing progress:", error);
-        }
-      };
-
-      eventSource.onerror = () => {
-        console.error("Progress stream error");
-        eventSource.close();
-      };
-    } catch (error) {
-      console.error("Failed to connect to progress stream:", error);
-    }
+      }
+    }, 100);
   };
 
   const closeModal = () => {
