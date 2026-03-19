@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseTikTokCSV, parseTikTokDate, parseCurrency, parseIncomeFile } from "@/lib/csv-parser";
-import { initializeProgress, updateProgress, completeProgress, failProgress, isSyncCancelled, resetCancelFlag } from "@/lib/sync-progress";
+import { initializeProgress, startFileProgress, updateProgress, completeProgress, failProgress, isSyncCancelled, resetCancelFlag } from "@/lib/sync-progress";
 import path from "path";
 import fs from "fs";
 
 export async function POST() {
   resetCancelFlag();
 
+  // Start sync in background, return immediately
+  (async () => {
+    await runSync();
+  })();
+
+  // Return immediately without waiting
+  return NextResponse.json({
+    success: true,
+    message: "Sync started in background. Check progress via /api/import-tiktok/progress",
+  });
+}
+
+async function runSync() {
   try {
     const dataDir = path.join(process.cwd(), "data", "tiktok");
 
@@ -51,12 +64,13 @@ export async function POST() {
         // Skip if already imported (unless you need to re-import)
         if (importedFileNames.has(file)) {
           filesSkipped++;
+          startFileProgress(file);
           updateProgress(file); // Still update progress for skipped files
           console.log(`Skipping already imported file: ${file}`);
           continue;
         }
 
-        updateProgress(file);
+        startFileProgress(file);
         const filePath = path.join(dataDir, file);
       const rows = await parseTikTokCSV(filePath);
 
@@ -162,6 +176,8 @@ export async function POST() {
         update: { lastImportedAt: new Date(), recordCount: ordersMap.size, status: "COMPLETED" },
         create: { fileName: file, recordCount: ordersMap.size, status: "COMPLETED" },
       });
+
+      updateProgress(file); // Mark file as done after all processing is complete
     }
 
       // Step 2: Import settlement data from income files
@@ -175,12 +191,13 @@ export async function POST() {
         // Skip if already imported
         if (importedFileNames.has(file)) {
           filesSkipped++;
+          startFileProgress(file);
           updateProgress(file); // Still update progress for skipped files
           console.log(`Skipping already imported file: ${file}`);
           continue;
         }
 
-        updateProgress(file);
+        startFileProgress(file);
         const filePath = path.join(dataDir, file);
       const rows = await parseIncomeFile(filePath);
 
@@ -211,6 +228,8 @@ export async function POST() {
         update: { lastImportedAt: new Date(), recordCount: settlementsInFile, status: "COMPLETED" },
         create: { fileName: file, recordCount: settlementsInFile, status: "COMPLETED" },
       });
+
+      updateProgress(file); // Mark file as done after all processing is complete
     }
 
     completeProgress();

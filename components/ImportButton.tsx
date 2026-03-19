@@ -1,311 +1,262 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Upload, Loader2, CheckCircle, AlertCircle, X, Trash2 } from "lucide-react";
+import { useState, useRef } from "react";
+import { Upload, Loader2, CheckCircle, Clock, X, Trash2, AlertCircle } from "lucide-react";
+
+type FileStatus = "pending" | "processing" | "done";
 
 interface ProgressUpdate {
   currentFile: string;
   processedCount: number;
   totalCount: number;
-  status: "processing" | "completed" | "failed";
-  timestamp: number;
+  status: "processing" | "completed" | "failed" | "idle";
   processedFiles: string[];
-  pendingFiles: string[];
   error?: string;
 }
 
-// API to cancel sync
-async function cancelSync() {
-  try {
-    const response = await fetch("/api/import-tiktok/cancel", { method: "POST" });
-    if (!response.ok) throw new Error("Failed to cancel sync");
-    console.log("[ImportButton] Cancel request sent");
-  } catch (error) {
-    console.error("[ImportButton] Error sending cancel:", error);
-  }
+async function fetchFileList(): Promise<string[]> {
+  const res = await fetch("/api/import-tiktok/files");
+  const data = await res.json();
+  return data.files as string[];
 }
 
-// API to reset database
+async function cancelSync() {
+  await fetch("/api/import-tiktok/cancel", { method: "POST" });
+}
+
 async function resetDatabase() {
-  try {
-    const response = await fetch("/api/reset-db", { method: "POST" });
-    const data = await response.json();
-    if (data.success) {
-      console.log("[ImportButton] Database reset successful");
-      window.location.reload();
-    } else {
-      throw new Error(data.error || "Failed to reset database");
-    }
-  } catch (error) {
-    console.error("[ImportButton] Reset error:", error);
-    alert("Failed to reset database: " + (error as any).message);
+  const res = await fetch("/api/reset-db", { method: "POST" });
+  const data = await res.json();
+  if (data.success) {
+    window.location.reload();
+  } else {
+    alert("Failed to reset database: " + (data.error || "Unknown error"));
   }
 }
 
 export function ImportButton() {
-  const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
-  const [progress, setProgress] = useState<ProgressUpdate | null>(null);
-  const [showModal, setShowModal] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [files, setFiles] = useState<string[]>([]);
+  const [fileStatuses, setFileStatuses] = useState<Record<string, FileStatus>>({});
+  const [syncStatus, setSyncStatus] = useState<"idle" | "processing" | "completed" | "failed">("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingRef = useRef(false);
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+    pollingRef.current = false;
+  };
 
   const handleImport = async () => {
-    setLoading(true);
-    setStatus(null);
+    setSyncing(true);
     setShowModal(true);
+    setErrorMsg(null);
+    setSyncStatus("idle");
+    stopPolling();
 
-    console.log("[ImportButton] Starting import...");
+    // 1. Load file list AND start sync at the same time
+    let fileList: string[] = [];
+    try {
+      [fileList] = await Promise.all([
+        fetchFileList(),
+        fetch("/api/import-tiktok", { method: "POST" }).catch(() => {}),
+      ]);
+    } catch {
+      setErrorMsg("ไม่สามารถโหลดรายชื่อไฟล์ได้");
+      setSyncing(false);
+      return;
+    }
 
-    // Set initial progress state
-    setProgress({
-      currentFile: "",
-      processedCount: 0,
-      totalCount: 0,
-      status: "processing",
-      timestamp: Date.now(),
-      processedFiles: [],
-      pendingFiles: [],
-    });
+    setFiles(fileList);
+    const initial: Record<string, FileStatus> = {};
+    fileList.forEach((f) => (initial[f] = "pending"));
+    setFileStatuses(initial);
+    setSyncStatus("processing");
 
-    // Start the import request FIRST
-    console.log("[ImportButton] Sending import request...");
-    (async () => {
+    // 2. Poll progress every 300ms — skip if previous still running
+    pollRef.current = setInterval(async () => {
+      if (pollingRef.current) return;
+      pollingRef.current = true;
       try {
-        const response = await fetch("/api/import-tiktok", { method: "POST" });
-        const data = await response.json();
+        const res = await fetch("/api/import-tiktok/progress");
+        const data = (await res.json()) as ProgressUpdate;
 
-        console.log("[ImportButton] Import response:", data);
+        // Always update file statuses from whatever data we have
+        if (data.processedFiles.length > 0 || data.currentFile) {
+          setFileStatuses((prev) => {
+            const updated = { ...prev };
+            data.processedFiles.forEach((f) => {
+              if (updated[f] !== undefined) updated[f] = "done";
+            });
+            if (data.currentFile && updated[data.currentFile] !== undefined) {
+              updated[data.currentFile] = "processing";
+            }
+            return updated;
+          });
+        }
 
-        if (data.success) {
-          setStatus({ type: "success", message: data.message });
-          // Refresh page after 2s to show new data
+        if (data.status === "completed") {
+          stopPolling();
+          // Mark ALL files as done (in case we missed intermediate states)
+          setFileStatuses((prev) => {
+            const updated = { ...prev };
+            Object.keys(updated).forEach((f) => (updated[f] = "done"));
+            return updated;
+          });
+          setSyncStatus("completed");
+          setSyncing(false);
           setTimeout(() => window.location.reload(), 2000);
-        } else {
-          setStatus({ type: "error", message: data.error || "Import failed" });
+        } else if (data.status === "failed") {
+          stopPolling();
+          setSyncStatus("failed");
+          setErrorMsg(data.error || "Import failed");
+          setSyncing(false);
         }
-      } catch (error) {
-        console.error("[ImportButton] Import error:", error);
-        setStatus({ type: "error", message: "Failed to connect to the server" });
+      } catch {
+        // network error — keep polling
       } finally {
-        setLoading(false);
+        pollingRef.current = false;
       }
-    })();
-
-    // Poll for progress updates every 500ms
-    const pollInterval = setInterval(async () => {
-      try {
-        const response = await fetch("/api/import-tiktok/progress");
-        const data = (await response.json()) as ProgressUpdate;
-
-        console.log("[ImportButton] Progress poll:", {
-          file: data.currentFile,
-          processed: data.processedCount,
-          total: data.totalCount,
-          status: data.status,
-        });
-
-        setProgress(data);
-
-        // Stop polling when sync is done
-        if (data.status === "completed" || data.status === "failed") {
-          console.log("[ImportButton] Sync complete, stopping poll");
-          clearInterval(pollInterval);
-        }
-      } catch (error) {
-        console.error("[ImportButton] Error polling progress:", error);
-      }
-    }, 500);
+    }, 300);
   };
 
-  const closeModal = () => {
+  const handleClose = () => {
     setShowModal(false);
-    setProgress(null);
+    stopPolling();
   };
-
-  const progressPercent = progress
-    ? Math.round((progress.processedCount / progress.totalCount) * 100)
-    : 0;
 
   const handleReset = async () => {
-    if (confirm("⚠️ This will delete ALL orders, items, and import history. Are you sure?")) {
-      setResetting(true);
-      await resetDatabase();
-      setResetting(false);
-    }
+    if (!confirm("⚠️ This will delete ALL orders, items, and import history. Are you sure?")) return;
+    setResetting(true);
+    await resetDatabase();
+    setResetting(false);
   };
+
+  const doneCount = Object.values(fileStatuses).filter((s) => s === "done").length;
+  const total = files.length;
+  const progressPercent = total > 0 ? Math.round((doneCount / total) * 100) : 0;
 
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
         <button
           onClick={handleImport}
-          disabled={loading}
+          disabled={syncing}
           className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
         >
-          {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-          {loading ? "Importing..." : "Import TikTok Data"}
+          {syncing ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+          {syncing ? "Importing..." : "Import TikTok Data"}
         </button>
 
         <button
           onClick={handleReset}
-          disabled={resetting || loading}
+          disabled={resetting || syncing}
           className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-          title="Reset database - delete all data"
+          title="Reset database"
         >
           {resetting ? <Loader2 className="animate-spin" size={20} /> : <Trash2 size={20} />}
           {resetting ? "Resetting..." : "Reset DB"}
         </button>
       </div>
 
-      {status && (
-        <div
-          className={`flex items-center gap-2 text-sm mt-1 ${
-            status.type === "success" ? "text-green-500" : "text-red-500"
-          }`}
-        >
-          {status.type === "success" ? <CheckCircle size={14} /> : <AlertCircle size={14} />}
-          {status.message}
-        </div>
-      )}
-
-      {/* Progress Modal */}
+      {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4">
+          <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold text-gray-900">Syncing TikTok Data</h2>
               <div className="flex gap-2">
-                {progress?.status === "processing" && (
+                {syncStatus === "processing" && (
                   <button
-                    onClick={() => {
-                      cancelSync();
-                    }}
-                    className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded font-medium text-sm transition-colors"
+                    onClick={cancelSync}
+                    className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded text-sm font-medium transition-colors"
                   >
                     Cancel
                   </button>
                 )}
-                {progress?.status !== "processing" && (
-                  <button
-                    onClick={closeModal}
-                    className="text-gray-400 hover:text-gray-600"
-                  >
+                {syncStatus !== "processing" && (
+                  <button onClick={handleClose} className="text-gray-400 hover:text-gray-600">
                     <X size={20} />
                   </button>
                 )}
               </div>
             </div>
 
-            {progress ? (
-              <div className="space-y-4">
-                {/* Progress Bar */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="font-medium text-gray-700">Progress</span>
-                    <span className="text-gray-500">
-                      {progress.processedCount}/{progress.totalCount}
-                    </span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all duration-300 ${
-                        progress.status === "completed"
-                          ? "bg-green-500"
-                          : progress.status === "failed"
-                          ? "bg-red-500"
-                          : "bg-blue-500"
-                      }`}
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
+            {/* Progress bar */}
+            {total > 0 && (
+              <div className="mb-4">
+                <div className="flex justify-between text-sm mb-1">
+                  <span className="text-gray-600 font-medium">
+                    {syncStatus === "completed" ? "เสร็จสิ้น" :
+                     syncStatus === "failed" ? "ล้มเหลว" : "กำลังนำเข้า..."}
+                  </span>
+                  <span className="text-gray-500">{doneCount}/{total} ไฟล์</span>
                 </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div
+                    className={`h-2 rounded-full transition-all duration-500 ${
+                      syncStatus === "completed" ? "bg-green-500" :
+                      syncStatus === "failed" ? "bg-red-500" : "bg-blue-500"
+                    }`}
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
-                {/* Current File */}
-                {progress.currentFile && progress.status === "processing" && (
-                  <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="animate-spin text-blue-600" size={16} />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-gray-900">
-                          Processing...
-                        </p>
-                        <p className="text-xs text-gray-600 truncate">
-                          {progress.currentFile}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Processed Files */}
-                {progress.processedFiles.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto">
-                    <p className="text-xs font-medium text-gray-600 mb-2">
-                      Completed ({progress.processedFiles.length})
-                    </p>
-                    <div className="space-y-1">
-                      {progress.processedFiles.map((file) => (
-                        <div key={file} className="flex items-center gap-2 text-xs">
-                          <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
-                          <span className="text-gray-600 truncate">{file}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Pending Files (if any) */}
-                {progress.pendingFiles.length > 0 && (
-                  <div className="max-h-32 overflow-y-auto">
-                    <p className="text-xs font-medium text-gray-600 mb-2">
-                      Pending ({progress.pendingFiles.length})
-                    </p>
-                    <div className="space-y-1">
-                      {progress.pendingFiles.slice(0, 5).map((file) => (
-                        <div key={file} className="flex items-center gap-2 text-xs">
-                          <div className="w-3.5 h-3.5 rounded-full border border-gray-300" />
-                          <span className="text-gray-500 truncate">{file}</span>
-                        </div>
-                      ))}
-                      {progress.pendingFiles.length > 5 && (
-                        <p className="text-xs text-gray-400 ml-5">
-                          +{progress.pendingFiles.length - 5} more...
-                        </p>
+            {/* File list */}
+            <div className="flex-1 overflow-y-auto space-y-1 min-h-0">
+              {files.length === 0 ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin text-purple-600" size={28} />
+                </div>
+              ) : (
+                files.map((file) => {
+                  const status = fileStatuses[file] ?? "pending";
+                  return (
+                    <div key={file} className="flex items-center gap-3 py-1.5 px-2 rounded-lg hover:bg-gray-50">
+                      {status === "done" && (
+                        <CheckCircle size={18} className="text-green-500 flex-shrink-0" />
                       )}
-                    </div>
-                  </div>
-                )}
-
-                {/* Completion States */}
-                {progress.status === "completed" && (
-                  <div className="bg-green-50 rounded-lg p-3 border border-green-200">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="text-green-600" size={16} />
-                      <span className="text-sm font-medium text-green-900">
-                        Import completed successfully!
+                      {status === "processing" && (
+                        <Loader2 size={18} className="animate-spin text-blue-500 flex-shrink-0" />
+                      )}
+                      {status === "pending" && (
+                        <Clock size={18} className="text-gray-300 flex-shrink-0" />
+                      )}
+                      <span className={`text-sm truncate ${
+                        status === "done" ? "text-gray-500 line-through" :
+                        status === "processing" ? "text-blue-700 font-medium" :
+                        "text-gray-600"
+                      }`}>
+                        {file}
                       </span>
                     </div>
-                  </div>
-                )}
+                  );
+                })
+              )}
+            </div>
 
-                {progress.status === "failed" && (
-                  <div className="bg-red-50 rounded-lg p-3 border border-red-200">
-                    <div className="flex items-start gap-2">
-                      <AlertCircle className="text-red-600 flex-shrink-0 mt-0.5" size={16} />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium text-red-900">Import failed</p>
-                        {progress.error && (
-                          <p className="text-xs text-red-700 mt-1">{progress.error}</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
+            {/* Status messages */}
+            {syncStatus === "completed" && (
+              <div className="mt-4 flex items-center gap-2 bg-green-50 text-green-800 rounded-lg px-3 py-2 text-sm">
+                <CheckCircle size={16} />
+                นำเข้าข้อมูลเสร็จสิ้น! กำลังรีโหลด...
               </div>
-            ) : (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="animate-spin text-purple-600" size={32} />
+            )}
+            {syncStatus === "failed" && errorMsg && (
+              <div className="mt-4 flex items-start gap-2 bg-red-50 text-red-800 rounded-lg px-3 py-2 text-sm">
+                <AlertCircle size={16} className="flex-shrink-0 mt-0.5" />
+                <span>{errorMsg}</span>
               </div>
             )}
           </div>

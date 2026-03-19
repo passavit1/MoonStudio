@@ -1,4 +1,9 @@
-// Global state to track sync progress across requests
+import fs from "fs";
+import path from "path";
+
+// Use a file to share state across Next.js route sandboxes (Turbopack isolates module globals)
+const PROGRESS_FILE = path.join(process.cwd(), ".next", "sync-progress.json");
+
 interface ProgressUpdate {
   currentFile: string;
   processedCount: number;
@@ -10,25 +15,52 @@ interface ProgressUpdate {
   error?: string;
 }
 
-let currentProgress: ProgressUpdate | null = null;
-let subscribers: Set<(progress: ProgressUpdate) => void> = new Set();
-let isCancelled = false;
+function readProgress(): ProgressUpdate | null {
+  try {
+    if (!fs.existsSync(PROGRESS_FILE)) return null;
+    const raw = fs.readFileSync(PROGRESS_FILE, "utf-8");
+    return JSON.parse(raw) as ProgressUpdate;
+  } catch {
+    return null;
+  }
+}
+
+function writeProgress(p: ProgressUpdate) {
+  try {
+    fs.writeFileSync(PROGRESS_FILE, JSON.stringify(p), "utf-8");
+  } catch (e) {
+    console.error("[SyncProgress] Failed to write progress file:", e);
+  }
+}
+
+function clearProgress() {
+  try {
+    if (fs.existsSync(PROGRESS_FILE)) fs.unlinkSync(PROGRESS_FILE);
+  } catch {}
+}
+
+// --- Cancel flag (also file-based for same reason) ---
+const CANCEL_FILE = path.join(process.cwd(), ".next", "sync-cancel.flag");
 
 export function cancelSync() {
-  isCancelled = true;
+  fs.writeFileSync(CANCEL_FILE, "1", "utf-8");
   console.log("[SyncProgress] Sync cancelled by user");
 }
 
 export function isSyncCancelled(): boolean {
-  return isCancelled;
+  return fs.existsSync(CANCEL_FILE);
 }
 
 export function resetCancelFlag() {
-  isCancelled = false;
+  try {
+    if (fs.existsSync(CANCEL_FILE)) fs.unlinkSync(CANCEL_FILE);
+  } catch {}
 }
 
+// --- Progress API ---
+
 export function initializeProgress(totalFiles: number, fileNames: string[]) {
-  currentProgress = {
+  writeProgress({
     currentFile: "",
     processedCount: 0,
     totalCount: totalFiles,
@@ -36,70 +68,54 @@ export function initializeProgress(totalFiles: number, fileNames: string[]) {
     timestamp: Date.now(),
     processedFiles: [],
     pendingFiles: [...fileNames],
-    error: undefined,
-  };
-  notifySubscribers();
+  });
+  console.log("[SyncProgress] Initialized:", totalFiles, "files");
+}
+
+export function startFileProgress(fileName: string) {
+  const p = readProgress();
+  if (!p) return;
+  p.currentFile = fileName;
+  p.timestamp = Date.now();
+  writeProgress(p);
+  console.log("[SyncProgress] Starting file:", fileName);
 }
 
 export function updateProgress(fileName: string) {
-  if (!currentProgress) return;
-
-  currentProgress.currentFile = fileName;
-  currentProgress.processedCount++;
-  currentProgress.processedFiles.push(fileName);
-  currentProgress.pendingFiles = currentProgress.pendingFiles.filter(
-    (f) => f !== fileName
-  );
-  currentProgress.timestamp = Date.now();
-
-  notifySubscribers();
+  const p = readProgress();
+  if (!p) return;
+  p.currentFile = "";
+  p.processedCount++;
+  p.processedFiles.push(fileName);
+  p.pendingFiles = p.pendingFiles.filter((f) => f !== fileName);
+  p.timestamp = Date.now();
+  writeProgress(p);
+  console.log("[SyncProgress] Completed file:", fileName, `(${p.processedCount}/${p.totalCount})`);
 }
 
 export function completeProgress() {
-  if (!currentProgress) return;
-
-  currentProgress.status = "completed";
-  currentProgress.currentFile = "";
-  currentProgress.timestamp = Date.now();
-
-  notifySubscribers();
-
-  // Clear progress after 5 seconds
-  setTimeout(() => {
-    currentProgress = null;
-    subscribers.clear();
-  }, 5000);
+  const p = readProgress();
+  if (!p) return;
+  p.status = "completed";
+  p.currentFile = "";
+  p.timestamp = Date.now();
+  writeProgress(p);
+  console.log("[SyncProgress] All done!");
+  // Clear after 30s
+  setTimeout(clearProgress, 30000);
 }
 
 export function failProgress(error: string) {
-  if (!currentProgress) return;
-
-  currentProgress.status = "failed";
-  currentProgress.error = error;
-  currentProgress.timestamp = Date.now();
-
-  notifySubscribers();
-
-  // Clear progress after 5 seconds
-  setTimeout(() => {
-    currentProgress = null;
-    subscribers.clear();
-  }, 5000);
+  const p = readProgress();
+  if (!p) return;
+  p.status = "failed";
+  p.error = error;
+  p.timestamp = Date.now();
+  writeProgress(p);
+  console.log("[SyncProgress] Failed:", error);
+  setTimeout(clearProgress, 30000);
 }
 
 export function getProgress(): ProgressUpdate | null {
-  return currentProgress;
-}
-
-export function subscribe(callback: (progress: ProgressUpdate) => void) {
-  subscribers.add(callback);
-  if (currentProgress) {
-    callback(currentProgress);
-  }
-  return () => subscribers.delete(callback);
-}
-
-function notifySubscribers() {
-  if (!currentProgress) return;
-  subscribers.forEach((callback) => callback(currentProgress!));
+  return readProgress();
 }
