@@ -12,6 +12,20 @@ interface ProgressUpdate {
 
 let currentProgress: ProgressUpdate | null = null;
 let subscribers: Set<(progress: ProgressUpdate) => void> = new Set();
+let isCancelled = false;
+
+export function cancelSync() {
+  isCancelled = true;
+  console.log("[SyncProgress] Sync cancelled by user");
+}
+
+export function isSyncCancelled(): boolean {
+  return isCancelled;
+}
+
+export function resetCancelFlag() {
+  isCancelled = false;
+}
 
 export function initializeProgress(totalFiles: number, fileNames: string[]) {
   currentProgress = {

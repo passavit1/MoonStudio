@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Upload, Loader2, CheckCircle, AlertCircle, X } from "lucide-react";
+import { Upload, Loader2, CheckCircle, AlertCircle, X, Trash2 } from "lucide-react";
 
 interface ProgressUpdate {
   currentFile: string;
@@ -14,11 +14,40 @@ interface ProgressUpdate {
   error?: string;
 }
 
+// API to cancel sync
+async function cancelSync() {
+  try {
+    const response = await fetch("/api/import-tiktok/cancel", { method: "POST" });
+    if (!response.ok) throw new Error("Failed to cancel sync");
+    console.log("[ImportButton] Cancel request sent");
+  } catch (error) {
+    console.error("[ImportButton] Error sending cancel:", error);
+  }
+}
+
+// API to reset database
+async function resetDatabase() {
+  try {
+    const response = await fetch("/api/reset-db", { method: "POST" });
+    const data = await response.json();
+    if (data.success) {
+      console.log("[ImportButton] Database reset successful");
+      window.location.reload();
+    } else {
+      throw new Error(data.error || "Failed to reset database");
+    }
+  } catch (error) {
+    console.error("[ImportButton] Reset error:", error);
+    alert("Failed to reset database: " + (error as any).message);
+  }
+}
+
 export function ImportButton() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<{ type: "success" | "error"; message: string } | null>(null);
   const [progress, setProgress] = useState<ProgressUpdate | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const handleImport = async () => {
     setLoading(true);
@@ -110,16 +139,36 @@ export function ImportButton() {
     ? Math.round((progress.processedCount / progress.totalCount) * 100)
     : 0;
 
+  const handleReset = async () => {
+    if (confirm("⚠️ This will delete ALL orders, items, and import history. Are you sure?")) {
+      setResetting(true);
+      await resetDatabase();
+      setResetting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-2">
-      <button
-        onClick={handleImport}
-        disabled={loading}
-        className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
-      >
-        {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-        {loading ? "Importing..." : "Import TikTok Data"}
-      </button>
+      <div className="flex gap-2">
+        <button
+          onClick={handleImport}
+          disabled={loading}
+          className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+        >
+          {loading ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+          {loading ? "Importing..." : "Import TikTok Data"}
+        </button>
+
+        <button
+          onClick={handleReset}
+          disabled={resetting || loading}
+          className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
+          title="Reset database - delete all data"
+        >
+          {resetting ? <Loader2 className="animate-spin" size={20} /> : <Trash2 size={20} />}
+          {resetting ? "Resetting..." : "Reset DB"}
+        </button>
+      </div>
 
       {status && (
         <div
@@ -139,14 +188,26 @@ export function ImportButton() {
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-bold text-gray-900">Syncing TikTok Data</h2>
-              {progress?.status !== "processing" && (
-                <button
-                  onClick={closeModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X size={20} />
-                </button>
-              )}
+              <div className="flex gap-2">
+                {progress?.status === "processing" && (
+                  <button
+                    onClick={() => {
+                      cancelSync();
+                    }}
+                    className="px-3 py-1 bg-red-100 text-red-700 hover:bg-red-200 rounded font-medium text-sm transition-colors"
+                  >
+                    Cancel
+                  </button>
+                )}
+                {progress?.status !== "processing" && (
+                  <button
+                    onClick={closeModal}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={20} />
+                  </button>
+                )}
+              </div>
             </div>
 
             {progress ? (

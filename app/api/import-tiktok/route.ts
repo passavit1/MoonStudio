@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseTikTokCSV, parseTikTokDate, parseCurrency, parseIncomeFile } from "@/lib/csv-parser";
-import { initializeProgress, updateProgress, completeProgress, failProgress } from "@/lib/sync-progress";
+import { initializeProgress, updateProgress, completeProgress, failProgress, isSyncCancelled, resetCancelFlag } from "@/lib/sync-progress";
 import path from "path";
 import fs from "fs";
 
 export async function POST() {
+  resetCancelFlag();
+
   try {
     const dataDir = path.join(process.cwd(), "data", "tiktok");
 
@@ -40,6 +42,12 @@ export async function POST() {
 
       // Step 1: Import sales data from CSV files
       for (const file of salesFiles) {
+        // Check if sync was cancelled
+        if (isSyncCancelled()) {
+          failProgress("Sync cancelled by user");
+          return NextResponse.json({ error: "Sync cancelled by user" }, { status: 400 });
+        }
+
         // Skip if already imported (unless you need to re-import)
         if (importedFileNames.has(file)) {
           filesSkipped++;
@@ -158,6 +166,12 @@ export async function POST() {
 
       // Step 2: Import settlement data from income files
       for (const file of incomeFiles) {
+        // Check if sync was cancelled
+        if (isSyncCancelled()) {
+          failProgress("Sync cancelled by user");
+          return NextResponse.json({ error: "Sync cancelled by user" }, { status: 400 });
+        }
+
         // Skip if already imported
         if (importedFileNames.has(file)) {
           filesSkipped++;
