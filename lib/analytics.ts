@@ -127,12 +127,38 @@ export async function getCancelledOrdersByMonth() {
   });
 
   // Convert to array and sort by year and month
-  return Object.entries(monthlyData)
+  const allMonths = Object.entries(monthlyData)
     .map(([month, data]) => ({ month, count: data.count, orderIds: data.orders, year: data.year, monthNum: data.monthNum }))
     .sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year;
       return a.monthNum - b.monthNum;
     });
+
+  // Filter to last 12 months and include empty months
+  const now = new Date();
+  const last12Months = [];
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = date.getFullYear();
+    const monthNum = date.getMonth();
+    const monthName = monthNames[monthNum];
+    const key = `${monthName} ${year}`;
+    const existingMonth = allMonths.find(m => m.year === year && m.monthNum === monthNum);
+
+    if (existingMonth) {
+      last12Months.push(existingMonth);
+    } else {
+      last12Months.push({
+        month: key,
+        count: 0,
+        orderIds: [],
+        year,
+        monthNum
+      });
+    }
+  }
+
+  return last12Months;
 }
 
 export async function getCurrentMonthFailedShipments() {
@@ -209,7 +235,7 @@ export async function getSuccessfulOrdersByMonth() {
   });
 
   // Convert to array and sort by year and month
-  return Object.entries(monthlyData)
+  const allMonths = Object.entries(monthlyData)
     .map(([month, data]) => ({
       month,
       count: data.count,
@@ -223,6 +249,34 @@ export async function getSuccessfulOrdersByMonth() {
       if (a.year !== b.year) return a.year - b.year;
       return a.monthNum - b.monthNum;
     });
+
+  // Filter to last 12 months and include empty months
+  const now = new Date();
+  const last12Months = [];
+  for (let i = 11; i >= 0; i--) {
+    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const year = date.getFullYear();
+    const monthNum = date.getMonth();
+    const monthName = monthNames[monthNum];
+    const key = `${monthName} ${year}`;
+    const existingMonth = allMonths.find(m => m.year === year && m.monthNum === monthNum);
+
+    if (existingMonth) {
+      last12Months.push(existingMonth);
+    } else {
+      last12Months.push({
+        month: key,
+        count: 0,
+        orderIds: [],
+        totalRevenue: 0,
+        totalSettlement: 0,
+        year,
+        monthNum
+      });
+    }
+  }
+
+  return last12Months;
 }
 
 export async function getCurrentMonthSuccessfulOrders() {

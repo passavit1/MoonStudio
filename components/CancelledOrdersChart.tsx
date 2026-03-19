@@ -36,11 +36,14 @@ export function CancelledOrdersChart({ data, currentMonthFailures }: CancelledOr
   }
 
   const maxCount = Math.max(...data.map(d => d.count));
-  const chartHeight = 200;
-  const barWidth = Math.max(30, Math.min(60, 1200 / data.length));
-  const barSpacing = Math.max(60, 1200 / data.length);
-  const svgWidth = data.length * barSpacing + 40;
-  const bottomPadding = data.length > 6 ? 60 : 40;
+  const chartHeight = 250;
+  // Fixed for 12 months
+  const monthCount = 12;
+  const barWidth = 36;
+  const barSpacing = 92; // Space per month group
+  const svgWidth = monthCount * barSpacing + 40;
+  const topPadding = 70; // Space for labels above bars
+  const bottomPadding = 70;
 
   return (
     <>
@@ -48,21 +51,23 @@ export function CancelledOrdersChart({ data, currentMonthFailures }: CancelledOr
         <h3 className="font-bold text-gray-900 mb-2">Failed Shipments by Month</h3>
         <p className="text-xs text-gray-500 mb-6">Orders cancelled/returned AFTER shipping • Click bars to view details</p>
 
-        <div className="flex gap-6 items-end overflow-x-auto">
+        <div className="w-full">
           <svg
-            width={svgWidth}
-            height={chartHeight + bottomPadding}
-            className="flex-shrink-0 cursor-pointer"
-            viewBox={`0 0 ${svgWidth} ${chartHeight + bottomPadding}`}
+            width="100%"
+            height="auto"
+            className="cursor-pointer w-full"
+            viewBox={`0 0 ${svgWidth} ${chartHeight + topPadding + bottomPadding}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{ minHeight: `${(chartHeight + topPadding + bottomPadding) * 0.6}px` }}
           >
             {/* Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => (
               <line
                 key={`grid-${idx}`}
                 x1="0"
-                y1={chartHeight - chartHeight * ratio}
+                y1={topPadding + chartHeight - chartHeight * ratio}
                 x2={svgWidth}
-                y2={chartHeight - chartHeight * ratio}
+                y2={topPadding + chartHeight - chartHeight * ratio}
                 stroke="#f0f0f0"
                 strokeWidth="1"
               />
@@ -71,8 +76,8 @@ export function CancelledOrdersChart({ data, currentMonthFailures }: CancelledOr
             {/* Bars */}
             {data.map((item, idx) => {
               const barHeight = (item.count / maxCount) * chartHeight;
-              const x = idx * barSpacing + 20;
-              const y = chartHeight - barHeight;
+              const x = idx * barSpacing + 28;
+              const y = topPadding + chartHeight - barHeight;
               const isSelected = selectedMonth?.month === item.month;
 
               return (
@@ -87,14 +92,14 @@ export function CancelledOrdersChart({ data, currentMonthFailures }: CancelledOr
                     rx="4"
                   />
 
-                  {/* Value label inside bar (at top) */}
+                  {/* Value label - ABOVE bar */}
                   <text
                     x={x + barWidth / 2}
-                    y={y + 18}
+                    y={topPadding - 20}
                     textAnchor="middle"
-                    fontSize={data.length > 10 ? "12" : "14"}
+                    fontSize="14"
                     fontWeight="bold"
-                    fill="white"
+                    fill="#1E40AF"
                   >
                     {item.count}
                   </text>
@@ -102,11 +107,11 @@ export function CancelledOrdersChart({ data, currentMonthFailures }: CancelledOr
                   {/* Month label below bar */}
                   <text
                     x={x + barWidth / 2}
-                    y={chartHeight + (data.length > 6 ? 35 : 20)}
+                    y={topPadding + chartHeight + 20}
                     textAnchor="middle"
-                    fontSize={data.length > 10 ? "10" : "12"}
+                    fontSize="12"
+                    fontWeight="600"
                     fill="#6b7280"
-                    transform={data.length > 6 ? `rotate(45 ${x + barWidth / 2} ${chartHeight + 35})` : undefined}
                   >
                     {item.month}
                   </text>

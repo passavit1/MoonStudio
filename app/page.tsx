@@ -83,12 +83,16 @@ export default async function Home() {
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Successful Orders Chart */}
-          <SuccessfulOrdersChart data={successfulOrders} currentMonthSuccesses={currentMonthSuccesses} />
+        <div className="flex flex-col gap-6">
+          {/* Successful Orders Chart - Full Width */}
+          <div className="w-full">
+            <SuccessfulOrdersChart data={successfulOrders} currentMonthSuccesses={currentMonthSuccesses} />
+          </div>
 
           {/* Cancelled Orders Chart */}
-          <CancelledOrdersChart data={cancelledOrders} currentMonthFailures={currentMonthFailures} />
+          <div className="w-full">
+            <CancelledOrdersChart data={cancelledOrders} currentMonthFailures={currentMonthFailures} />
+          </div>
         </div>
 
         {/* Product Table */}

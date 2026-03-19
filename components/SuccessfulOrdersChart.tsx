@@ -38,11 +38,15 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
   }
 
   const maxRevenue = Math.max(...data.map(d => Math.max(d.totalRevenue, d.totalSettlement, d.count * 100)));
-  const chartHeight = 250;
-  const barWidth = Math.max(18, Math.min(30, 1200 / (data.length * 3.5)));
-  const groupSpacing = Math.max(120, 1200 / data.length);
-  const svgWidth = data.length * groupSpacing + 40;
-  const bottomPadding = data.length > 6 ? 80 : 60;
+  const chartHeight = 280;
+  // Fixed for 12 months - use 100% via container
+  const monthCount = 12;
+  const barWidth = 20;
+  const barGap = 3;
+  const groupSpacing = (barWidth + barGap) * 3 + 20; // ~90px for three bars + spacing
+  const svgWidth = monthCount * groupSpacing + 40;
+  const topPadding = 90; // Space for labels above bars
+  const bottomPadding = 70;
 
   return (
     <>
@@ -66,21 +70,23 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
           </div>
         </div>
 
-        <div className="flex gap-6 items-end overflow-x-auto">
+        <div className="w-full">
           <svg
-            width={svgWidth}
-            height={chartHeight + bottomPadding}
-            className="flex-shrink-0 cursor-pointer"
-            viewBox={`0 0 ${svgWidth} ${chartHeight + bottomPadding}`}
+            width="100%"
+            height="auto"
+            className="cursor-pointer w-full"
+            viewBox={`0 0 ${svgWidth} ${chartHeight + topPadding + bottomPadding}`}
+            preserveAspectRatio="xMidYMid meet"
+            style={{ minHeight: `${(chartHeight + topPadding + bottomPadding) * 0.6}px` }}
           >
             {/* Grid lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio, idx) => (
               <line
                 key={`grid-${idx}`}
                 x1="0"
-                y1={chartHeight - chartHeight * ratio}
+                y1={topPadding + chartHeight - chartHeight * ratio}
                 x2={svgWidth}
-                y2={chartHeight - chartHeight * ratio}
+                y2={topPadding + chartHeight - chartHeight * ratio}
                 stroke="#f0f0f0"
                 strokeWidth="1"
               />
@@ -91,13 +97,13 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
               const countBarHeight = (item.count * 100 / maxRevenue) * chartHeight;
               const revenueBarHeight = (item.totalRevenue / maxRevenue) * chartHeight;
               const settlementBarHeight = (item.totalSettlement / maxRevenue) * chartHeight;
-              const groupX = idx * groupSpacing + 20;
+              const groupX = idx * groupSpacing + 15;
               const countX = groupX;
-              const revenueX = groupX + barWidth + 4;
-              const settlementX = groupX + (barWidth + 4) * 2;
-              const countY = chartHeight - countBarHeight;
-              const revenueY = chartHeight - revenueBarHeight;
-              const settlementY = chartHeight - settlementBarHeight;
+              const revenueX = groupX + barWidth + barGap;
+              const settlementX = groupX + (barWidth + barGap) * 2;
+              const countY = topPadding + chartHeight - countBarHeight;
+              const revenueY = topPadding + chartHeight - revenueBarHeight;
+              const settlementY = topPadding + chartHeight - settlementBarHeight;
               const isSelected = selectedMonth?.month === item.month;
 
               return (
@@ -132,45 +138,45 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
                     rx="3"
                   />
 
-                  {/* Count value label - inside bar */}
-                  {item.count > 0 && countBarHeight > 20 && (
+                  {/* Count value label - ABOVE bar */}
+                  {item.count > 0 && (
                     <text
                       x={countX + barWidth / 2}
-                      y={countY + countBarHeight / 2 + 4}
+                      y={topPadding - 55}
                       textAnchor="middle"
-                      fontSize={data.length > 10 ? "8" : "9"}
+                      fontSize="13"
                       fontWeight="bold"
-                      fill="white"
+                      fill="#374151"
                       pointerEvents="none"
                     >
                       {item.count}
                     </text>
                   )}
 
-                  {/* Revenue value label - inside bar */}
-                  {item.totalRevenue > 0 && revenueBarHeight > 25 && (
+                  {/* Revenue value label - ABOVE bar */}
+                  {item.totalRevenue > 0 && (
                     <text
                       x={revenueX + barWidth / 2}
-                      y={revenueY + revenueBarHeight / 2 + 4}
+                      y={topPadding - 35}
                       textAnchor="middle"
-                      fontSize={data.length > 10 ? "8" : "9"}
+                      fontSize="13"
                       fontWeight="bold"
-                      fill="white"
+                      fill="#15803D"
                       pointerEvents="none"
                     >
                       ฿{(item.totalRevenue / 1000).toFixed(1)}k
                     </text>
                   )}
 
-                  {/* Settlement value label - inside bar */}
-                  {item.totalSettlement > 0 && settlementBarHeight > 25 && (
+                  {/* Settlement value label - ABOVE bar */}
+                  {item.totalSettlement > 0 && (
                     <text
                       x={settlementX + barWidth / 2}
-                      y={settlementY + settlementBarHeight / 2 + 4}
+                      y={topPadding - 15}
                       textAnchor="middle"
-                      fontSize={data.length > 10 ? "8" : "9"}
+                      fontSize="13"
                       fontWeight="bold"
-                      fill="white"
+                      fill="#1E40AF"
                       pointerEvents="none"
                     >
                       ฿{(item.totalSettlement / 1000).toFixed(1)}k
@@ -180,11 +186,11 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
                   {/* Month label below bars */}
                   <text
                     x={groupX + barWidth + 8}
-                    y={chartHeight + (data.length > 6 ? 45 : 25)}
+                    y={topPadding + chartHeight + 20}
                     textAnchor="middle"
-                    fontSize={data.length > 10 ? "9" : "11"}
+                    fontSize="12"
+                    fontWeight="600"
                     fill="#6b7280"
-                    transform={data.length > 6 ? `rotate(45 ${groupX + barWidth + 8} ${chartHeight + 45})` : undefined}
                   >
                     {item.month}
                   </text>
