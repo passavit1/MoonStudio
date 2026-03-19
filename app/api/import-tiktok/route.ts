@@ -19,8 +19,8 @@ export async function POST() {
     }
 
     // Initialize progress tracking
-    const allFiles = [...salesFiles, ...incomeFiles];
-    initializeProgress(allFiles.length, allFiles);
+    const allFilesForProgress = [...salesFiles, ...incomeFiles];
+    initializeProgress(allFilesForProgress.length, allFilesForProgress);
 
     // Ensure TikTok platform exists
     const platform = await prisma.platform.upsert({
