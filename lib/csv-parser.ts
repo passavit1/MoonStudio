@@ -142,8 +142,32 @@ export const parseIncomeFile = (filePath: string): Promise<IncomeRow[]> => {
         } catch (xlsxError) {
           reject(new Error(`Failed to parse income XLSX file: ${filePath}. Error: ${(xlsxError as Error).message}`));
         }
+      } else if (filePath.endsWith(".csv")) {
+        try {
+          const csvFile = fs.readFileSync(filePath, "utf8");
+          Papa.parse(csvFile, {
+            header: true,
+            skipEmptyLines: true,
+            complete: (results) => {
+              // Normalize column names by trimming whitespace
+              const normalizedData: IncomeRow[] = (results.data as any[]).map(row => {
+                const normalized: any = {};
+                for (const [key, value] of Object.entries(row)) {
+                  normalized[key.trim()] = value;
+                }
+                return normalized;
+              });
+              resolve(normalizedData);
+            },
+            error: (error: any) => {
+              reject(new Error(`Failed to parse income CSV file: ${filePath}. Error: ${error.message}`));
+            },
+          });
+        } catch (csvError) {
+          reject(new Error(`Failed to read income CSV file: ${filePath}. Error: ${(csvError as Error).message}`));
+        }
       } else {
-        reject(new Error(`Income files must be in XLSX format: ${filePath}`));
+        reject(new Error(`Income files must be in CSV or XLSX format: ${filePath}`));
       }
     } catch (error) {
       reject(new Error(`Error processing income file: ${filePath}. Error: ${(error as Error).message}`));

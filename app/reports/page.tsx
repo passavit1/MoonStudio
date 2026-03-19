@@ -85,23 +85,32 @@ export default function ReportsPage() {
     <div className="container-safe">
       <main className="flex flex-col gap-8">
         {/* Header */}
-        <div className="flex items-center gap-4">
-          <Link
-            href="/"
-            className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
-            title="Back to Dashboard"
-          >
-            <ArrowLeft size={24} className="text-gray-600" />
-          </Link>
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-purple-600 rounded-xl text-white shadow-lg shadow-purple-200">
-              <BarChart3 size={28} />
-            </div>
-            <div>
-              <h1 className="page-title">Tax & Reports</h1>
-              <p className="page-subtitle">Monthly Revenue Summary</p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
+              title="Back to Dashboard"
+            >
+              <ArrowLeft size={24} className="text-gray-600" />
+            </Link>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-purple-600 rounded-xl text-white shadow-lg shadow-purple-200">
+                <BarChart3 size={28} />
+              </div>
+              <div>
+                <h1 className="page-title">Tax & Reports</h1>
+                <p className="page-subtitle">Monthly Revenue Summary</p>
+              </div>
             </div>
           </div>
+          <Link
+            href="/reports/settlement-reconciliation"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors whitespace-nowrap"
+            title="View Settlement Reconciliation Report"
+          >
+            🔍 Settlement Reconciliation
+          </Link>
         </div>
 
         {/* Loading State */}

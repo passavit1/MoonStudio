@@ -68,3 +68,11 @@ model FileImportMetadata {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }
+
+model ReconciliationDismissal {
+  id          Int      @id @default(autoincrement())
+  type        String   // "unsettled_order" | "unmatched_transaction"
+  key         String   @unique // orderId for unsettled; "file::orderId" for unmatched
+  note        String?
+  dismissedAt DateTime @default(now())
+}

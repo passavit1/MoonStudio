@@ -37,7 +37,7 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
     );
   }
 
-  const maxRevenue = Math.max(...data.map(d => Math.max(d.totalRevenue, d.totalSettlement, d.count * 100)));
+  const maxRevenue = Math.max(...data.map(d => Math.max(d.totalRevenue, d.totalSettlement, d.count * 100))) || 1;
   const chartHeight = 280;
   // Fixed for 12 months - use 100% via container
   const monthCount = 12;
