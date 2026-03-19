@@ -26,12 +26,28 @@ export async function getDashboardSummary() {
 
   const uniqueProducts = await prisma.orderItem.groupBy({
     by: ["productName"],
+    where: {
+      order: {
+        OR: [
+          { cancelationType: null },
+          { shippedTime: { not: null } },
+        ],
+      },
+    },
   });
 
   const topProducts = await prisma.orderItem.groupBy({
     by: ["productName", "variation"],
     _sum: {
       quantity: true,
+    },
+    where: {
+      order: {
+        OR: [
+          { cancelationType: null },
+          { shippedTime: { not: null } },
+        ],
+      },
     },
     orderBy: {
       _sum: {
@@ -72,6 +88,14 @@ export async function getAllProductsSales() {
     _sum: {
       quantity: true,
       subtotal: true,
+    },
+    where: {
+      order: {
+        OR: [
+          { cancelationType: null },
+          { shippedTime: { not: null } },
+        ],
+      },
     },
     orderBy: {
       _sum: {
