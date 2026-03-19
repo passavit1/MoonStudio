@@ -82,8 +82,8 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 sm:p-12 font-sans">
-      <main className="max-w-5xl mx-auto flex flex-col gap-8">
+    <div className="container-safe">
+      <main className="flex flex-col gap-8">
         {/* Header */}
         <div className="flex items-center gap-4">
           <Link
@@ -98,17 +98,15 @@ export default function ReportsPage() {
               <BarChart3 size={28} />
             </div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                Tax & Reports
-              </h1>
-              <p className="text-gray-500">Monthly Revenue Summary</p>
+              <h1 className="page-title">Tax & Reports</h1>
+              <p className="page-subtitle">Monthly Revenue Summary</p>
             </div>
           </div>
         </div>
 
         {/* Loading State */}
         {loading && (
-          <div className="bg-white p-12 rounded-2xl border border-gray-100 text-center">
+          <div className="card text-center">
             <div className="inline-block animate-spin">
               <div className="w-8 h-8 border-4 border-purple-200 border-t-purple-600 rounded-full"></div>
             </div>
@@ -118,7 +116,7 @@ export default function ReportsPage() {
 
         {/* Error State */}
         {error && !loading && (
-          <div className="bg-red-50 p-6 rounded-2xl border border-red-200">
+          <div className="card bg-red-50 border-red-200">
             <p className="text-red-800 font-semibold">Error: {error}</p>
           </div>
         )}
@@ -129,22 +127,22 @@ export default function ReportsPage() {
             {/* Summary Cards */}
             {totals && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="card">
                   <div className="flex items-center gap-2 text-green-600 mb-2 font-semibold text-xs uppercase tracking-wider">
                     <TrendingUp size={16} />
                     Customer Paid
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="stat-value text-gray-900">
                     {formatCurrency(totals.totalRevenue)}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">All time</p>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="card">
                   <div className="flex items-center gap-2 text-blue-600 mb-2 font-semibold text-xs uppercase tracking-wider">
                     💰 Settlement
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="stat-value text-gray-900">
                     {formatCurrency(totals.totalSettlement)}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
@@ -152,21 +150,21 @@ export default function ReportsPage() {
                   </p>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="card">
                   <div className="text-blue-600 mb-2 font-semibold text-xs uppercase tracking-wider">
                     📊 Total Orders
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="stat-value text-gray-900">
                     {totals.totalOrders.toLocaleString()}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">All time</p>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="card">
                   <div className="text-green-600 mb-2 font-semibold text-xs uppercase tracking-wider">
                     ✅ Completed
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="stat-value text-gray-900">
                     {totals.completedOrders.toLocaleString()}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
@@ -174,11 +172,11 @@ export default function ReportsPage() {
                   </p>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="card">
                   <div className="text-yellow-600 mb-2 font-semibold text-xs uppercase tracking-wider">
                     🚚 Pending (On The Way)
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="stat-value text-gray-900">
                     {totals.pendingOrders.toLocaleString()}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
@@ -186,11 +184,11 @@ export default function ReportsPage() {
                   </p>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                <div className="card">
                   <div className="text-red-600 mb-2 font-semibold text-xs uppercase tracking-wider">
                     📦 Lost (Shipped & Cancelled)
                   </div>
-                  <div className="text-2xl font-bold text-gray-900">
+                  <div className="stat-value text-gray-900">
                     {totals.lostOrders.toLocaleString()}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">
@@ -201,7 +199,7 @@ export default function ReportsPage() {
             )}
 
             {/* Monthly Table */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+            <div className="table-wrapper">
               <div className="px-6 py-4 border-b border-gray-100">
                 <h2 className="text-lg font-bold text-gray-900">Monthly Breakdown</h2>
               </div>
@@ -213,7 +211,7 @@ export default function ReportsPage() {
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="bg-gray-50 border-b border-gray-100">
+                    <thead className="table-header border-b border-gray-100">
                       <tr>
                         <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Month
@@ -243,7 +241,7 @@ export default function ReportsPage() {
                         <tr
                           key={month.month}
                           onClick={() => handleMonthClick(month.month)}
-                          className={`border-b border-gray-100 hover:bg-blue-50 transition-colors cursor-pointer ${
+                          className={`table-row cursor-pointer ${
                             idx === monthlyData.length - 1 ? "border-b-0" : ""
                           }`}
                         >
@@ -334,10 +332,10 @@ export default function ReportsPage() {
 
       {/* Month Details Modal */}
       {selectedMonth && (
-        <div className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="modal-backdrop z-modal-content">
+          <div className="modal-content max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="sticky top-0 bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between">
+            <div className="modal-header">
               <h2 className="text-2xl font-bold text-gray-900">
                 {formatMonth(selectedMonth)} - Order Details
               </h2>
@@ -350,7 +348,7 @@ export default function ReportsPage() {
             </div>
 
             {/* Modal Content */}
-            <div className="p-6">
+            <div className="modal-body p-6">
               {detailsLoading ? (
                 <div className="text-center py-8">
                   <div className="inline-block animate-spin">

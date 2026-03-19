@@ -97,8 +97,8 @@ export default function ProductsPage() {
   const totalRevenue = filteredProducts.reduce((sum, p) => sum + p.totalRevenue, 0);
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 sm:p-12 font-sans">
-      <main className="max-w-7xl mx-auto flex flex-col gap-8">
+    <div className="container-safe">
+      <main className="flex flex-col gap-8">
 
         {/* Header with back button */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -115,10 +115,8 @@ export default function ProductsPage() {
                 <Package size={28} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-                  Product Sales
-                </h1>
-                <p className="text-gray-500">Track units sold per product</p>
+                <h1 className="page-title">Product Sales</h1>
+                <p className="page-subtitle">Track units sold per product</p>
               </div>
             </div>
           </div>
@@ -126,23 +124,23 @@ export default function ProductsPage() {
 
         {/* Summary Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="card">
             <div className="flex items-center gap-3 text-orange-600 mb-4 font-semibold uppercase text-xs tracking-wider">
               <Package size={18} />
               Total Units Sold
             </div>
-            <div className="text-3xl font-bold text-gray-900">
+            <div className="stat-value text-gray-900">
               {totalUnits.toLocaleString()}
             </div>
             <p className="text-sm text-gray-400 mt-2">Across all filtered products</p>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="card">
             <div className="flex items-center gap-3 text-green-600 mb-4 font-semibold uppercase text-xs tracking-wider">
               <span className="text-lg">₿</span>
               Total Revenue
             </div>
-            <div className="text-3xl font-bold text-gray-900">
+            <div className="stat-value text-gray-900">
               ฿{totalRevenue.toLocaleString()}
             </div>
             <p className="text-sm text-gray-400 mt-2">From filtered products</p>
@@ -157,12 +155,12 @@ export default function ProductsPage() {
             placeholder="Search by product name..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+            className="input-search"
           />
         </div>
 
         {/* Products List */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="table-wrapper">
           <div className="px-6 py-4 border-b border-gray-50">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-bold text-gray-900">
@@ -183,7 +181,7 @@ export default function ProductsPage() {
             ) : filteredProducts.length > 0 ? (
               <div className="divide-y divide-gray-50">
                 {filteredProducts.map((product) => (
-                  <div key={product.name} className="hover:bg-gray-50/50 transition-colors">
+                  <div key={product.name} className="table-row">
                     {/* Product Row */}
                     <button
                       onClick={() => toggleExpand(product.name)}
