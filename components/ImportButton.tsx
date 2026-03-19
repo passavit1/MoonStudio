@@ -100,10 +100,12 @@ export function ImportButton() {
       const connectProgressStream = () => {
         try {
           console.log("[ImportButton] Connecting to progress stream...");
+          console.log("[ImportButton] Creating EventSource for /api/import-tiktok/progress");
           eventSource = new EventSource("/api/import-tiktok/progress");
+          console.log("[ImportButton] EventSource created, readyState:", eventSource.readyState);
 
           eventSource.onopen = () => {
-            console.log("[ImportButton] Progress stream connected");
+            console.log("[ImportButton] ✅ Progress stream OPEN");
             retryCount = 0; // Reset retry count on successful connection
           };
 
