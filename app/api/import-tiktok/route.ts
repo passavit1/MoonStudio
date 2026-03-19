@@ -22,9 +22,8 @@ export async function POST() {
     const allFiles = [...salesFiles, ...incomeFiles];
     initializeProgress(allFiles.length, allFiles);
 
-    try {
-      // Ensure TikTok platform exists
-      const platform = await prisma.platform.upsert({
+    // Ensure TikTok platform exists
+    const platform = await prisma.platform.upsert({
         where: { name: "TikTok" },
         update: {},
         create: { name: "TikTok" },
@@ -200,23 +199,22 @@ export async function POST() {
       });
     }
 
-      completeProgress();
+    completeProgress();
 
-      return NextResponse.json({
-        success: true,
-        message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} sales files. Updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files. Skipped ${filesSkipped} already-imported files.`,
-        stats: {
-          ordersImported: totalOrdersImported,
-          itemsImported: totalItemsImported,
-          settlementsUpdated: totalSettlementsUpdated,
-          filesSkipped,
-          totalFilesProcessed: salesFiles.length + incomeFiles.length,
-        },
-      });
-    } catch (error: any) {
-      failProgress(error.message);
-      console.error("Import error:", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
-    }
+    return NextResponse.json({
+      success: true,
+      message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} sales files. Updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files. Skipped ${filesSkipped} already-imported files.`,
+      stats: {
+        ordersImported: totalOrdersImported,
+        itemsImported: totalItemsImported,
+        settlementsUpdated: totalSettlementsUpdated,
+        filesSkipped,
+        totalFilesProcessed: salesFiles.length + incomeFiles.length,
+      },
+    });
+  } catch (error: any) {
+    failProgress(error.message);
+    console.error("Import error:", error);
+    return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
