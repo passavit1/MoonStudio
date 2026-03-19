@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { parseTikTokCSV, parseTikTokDate, parseCurrency, parseIncomeFile } from "@/lib/csv-parser";
+import { initializeProgress, updateProgress, completeProgress, failProgress } from "@/lib/sync-progress";
 import path from "path";
 import fs from "fs";
 
@@ -17,31 +18,39 @@ export async function POST() {
       return NextResponse.json({ error: "No CSV or XLSX files found in /data/tiktok" }, { status: 404 });
     }
 
-    // Ensure TikTok platform exists
-    const platform = await prisma.platform.upsert({
-      where: { name: "TikTok" },
-      update: {},
-      create: { name: "TikTok" },
-    });
+    // Initialize progress tracking
+    const allFiles = [...salesFiles, ...incomeFiles];
+    initializeProgress(allFiles.length, allFiles);
 
-    let totalOrdersImported = 0;
-    let totalItemsImported = 0;
-    let totalSettlementsUpdated = 0;
-    let filesSkipped = 0;
+    try {
+      // Ensure TikTok platform exists
+      const platform = await prisma.platform.upsert({
+        where: { name: "TikTok" },
+        update: {},
+        create: { name: "TikTok" },
+      });
 
-    // Get imported file metadata
-    const importedMetadata = await prisma.fileImportMetadata.findMany();
-    const importedFileNames = new Set(importedMetadata.map(m => m.fileName));
+      let totalOrdersImported = 0;
+      let totalItemsImported = 0;
+      let totalSettlementsUpdated = 0;
+      let filesSkipped = 0;
 
-    // Step 1: Import sales data from CSV files
-    for (const file of salesFiles) {
-      // Skip if already imported (unless you need to re-import)
-      if (importedFileNames.has(file)) {
-        filesSkipped++;
-        console.log(`Skipping already imported file: ${file}`);
-        continue;
-      }
-      const filePath = path.join(dataDir, file);
+      // Get imported file metadata
+      const importedMetadata = await prisma.fileImportMetadata.findMany();
+      const importedFileNames = new Set(importedMetadata.map(m => m.fileName));
+
+      // Step 1: Import sales data from CSV files
+      for (const file of salesFiles) {
+        // Skip if already imported (unless you need to re-import)
+        if (importedFileNames.has(file)) {
+          filesSkipped++;
+          updateProgress(file); // Still update progress for skipped files
+          console.log(`Skipping already imported file: ${file}`);
+          continue;
+        }
+
+        updateProgress(file);
+        const filePath = path.join(dataDir, file);
       const rows = await parseTikTokCSV(filePath);
 
       // Group rows by Order ID (one order can have multiple items)
@@ -148,15 +157,18 @@ export async function POST() {
       });
     }
 
-    // Step 2: Import settlement data from income files
-    for (const file of incomeFiles) {
-      // Skip if already imported
-      if (importedFileNames.has(file)) {
-        filesSkipped++;
-        console.log(`Skipping already imported file: ${file}`);
-        continue;
-      }
-      const filePath = path.join(dataDir, file);
+      // Step 2: Import settlement data from income files
+      for (const file of incomeFiles) {
+        // Skip if already imported
+        if (importedFileNames.has(file)) {
+          filesSkipped++;
+          updateProgress(file); // Still update progress for skipped files
+          console.log(`Skipping already imported file: ${file}`);
+          continue;
+        }
+
+        updateProgress(file);
+        const filePath = path.join(dataDir, file);
       const rows = await parseIncomeFile(filePath);
 
       let settlementsInFile = 0;
@@ -188,19 +200,23 @@ export async function POST() {
       });
     }
 
-    return NextResponse.json({
-      success: true,
-      message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} sales files. Updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files. Skipped ${filesSkipped} already-imported files.`,
-      stats: {
-        ordersImported: totalOrdersImported,
-        itemsImported: totalItemsImported,
-        settlementsUpdated: totalSettlementsUpdated,
-        filesSkipped,
-        totalFilesProcessed: salesFiles.length + incomeFiles.length,
-      },
-    });
-  } catch (error: any) {
-    console.error("Import error:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+      completeProgress();
+
+      return NextResponse.json({
+        success: true,
+        message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} sales files. Updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files. Skipped ${filesSkipped} already-imported files.`,
+        stats: {
+          ordersImported: totalOrdersImported,
+          itemsImported: totalItemsImported,
+          settlementsUpdated: totalSettlementsUpdated,
+          filesSkipped,
+          totalFilesProcessed: salesFiles.length + incomeFiles.length,
+        },
+      });
+    } catch (error: any) {
+      failProgress(error.message);
+      console.error("Import error:", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 }
