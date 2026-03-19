@@ -206,20 +206,56 @@ for (const itemRow of orderRows) {
 
 ---
 
+## Income/Settlement File Mapping
+
+### Income XLSX Format
+- **File Location:** `/data/tiktok/income-*.xlsx` (e.g., `income-2026-01.xlsx`)
+- **Primary Sheet:** "Order details"
+- **Key Fields:**
+
+| CSV Column | DB Field | Data Type | Status |
+|---|---|---|---|
+| `Order/adjustment ID` | Order.externalOrderId | String | ✅ Used to match orders |
+| `Type` | - | String | ℹ️ Logged but not stored |
+| `Order created time` | - | DateTime | ℹ️ Not used (already in sales data) |
+| `Order settled time` | - | DateTime | ⏳ Can be added to Order model if needed |
+| `Currency` | - | String | ℹ️ Not stored (assumed THB) |
+| `Total settlement amount` | Order.settlementAmount | Float | ✅ Actual payout received |
+
+### Settlement Import Logic
+
+1. **Match by Order ID**: Uses `Order/adjustment ID` from income file to match with `Order.externalOrderId`
+2. **Update Only**: If order exists, updates `settlementAmount`. If not, silently skips.
+3. **No Duplicates**: Each income row processed once per import
+
+**Example:**
+```
+Sales CSV:  Order 1234, Subtotal: 100, Order Amount: 90
+Income XLSX: Order 1234, Settlement Amount: 73.65
+Result:     Order 1234: settlementAmount = 73.65
+```
+
+---
+
 ## To-Do / Future Implementation
 
-### Phase 1: Capture Real Product Value (CURRENT)
-- [ ] Add `subtotalBeforeDiscount` to Order schema
-- [ ] Update import to calculate: `SUM(SKU Subtotal Before Discount)`
-- [ ] Verify mapping matches CSV data
+### Phase 1: Capture Real Product Value (COMPLETED)
+- [x] Add `subtotalBeforeDiscount` to Order schema
+- [x] Update import to calculate: `SUM(SKU Subtotal Before Discount)`
+- [x] Verify mapping matches CSV data
 
-### Phase 2: Settlement/Payout Tracking (FUTURE)
-- [ ] Create Settlement CSV import (from TikTok payout report)
-- [ ] Add fields: `platformCommission`, `paymentFee`, `smallOrderFee`, `actualProceeds`
-- [ ] Link Settlement records to Orders
-- [ ] Dashboard: Real Value → Customer Paid → What You Received
+### Phase 2: Settlement/Payout Tracking (COMPLETED)
+- [x] Create Settlement XLSX import (from TikTok payout report)
+- [x] Add field: `settlementAmount` (actual payout received)
+- [x] Link Settlement records to Orders
+- [ ] Dashboard: Real Value → Customer Paid → What You Received (UI feature)
 
-### Phase 3: Multi-Platform (FUTURE)
+### Phase 3: Additional Settlement Fields (FUTURE - Optional)
+- [ ] Add `settledTime` to Order schema if needed
+- [ ] Track other fees: `platformCommission`, `paymentFee`, `smallOrderFee`
+- [ ] Add fields for tax/regulatory information
+
+### Phase 4: Multi-Platform (FUTURE)
 - [ ] Define Shopee CSV column mapping
 - [ ] Define Lazada CSV column mapping
 

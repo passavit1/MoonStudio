@@ -171,11 +171,22 @@ export async function getSuccessfulOrdersByMonth() {
       externalOrderId: true,
       createdTime: true,
       shippedTime: true,
+      orderAmount: true,
+      settlementAmount: true,
     },
   });
 
   // Group by month and year
-  const monthlyData: { [key: string]: { count: number; orders: string[]; year: number; monthNum: number } } = {};
+  const monthlyData: {
+    [key: string]: {
+      count: number;
+      orders: string[];
+      totalRevenue: number;
+      totalSettlement: number;
+      year: number;
+      monthNum: number
+    }
+  } = {};
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   orders.forEach(order => {
@@ -186,16 +197,28 @@ export async function getSuccessfulOrdersByMonth() {
       const key = `${monthName} ${year}`;
 
       if (!monthlyData[key]) {
-        monthlyData[key] = { count: 0, orders: [], year, monthNum };
+        monthlyData[key] = { count: 0, orders: [], totalRevenue: 0, totalSettlement: 0, year, monthNum };
       }
       monthlyData[key].count++;
       monthlyData[key].orders.push(order.externalOrderId);
+      monthlyData[key].totalRevenue += order.orderAmount || 0;
+      if (order.settlementAmount !== null && order.settlementAmount !== undefined) {
+        monthlyData[key].totalSettlement += order.settlementAmount;
+      }
     }
   });
 
   // Convert to array and sort by year and month
   return Object.entries(monthlyData)
-    .map(([month, data]) => ({ month, count: data.count, orderIds: data.orders, year: data.year, monthNum: data.monthNum }))
+    .map(([month, data]) => ({
+      month,
+      count: data.count,
+      orderIds: data.orders,
+      totalRevenue: data.totalRevenue,
+      totalSettlement: data.totalSettlement,
+      year: data.year,
+      monthNum: data.monthNum
+    }))
     .sort((a, b) => {
       if (a.year !== b.year) return a.year - b.year;
       return a.monthNum - b.monthNum;

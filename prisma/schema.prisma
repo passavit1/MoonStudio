@@ -28,6 +28,7 @@ model Order {
   subtotal                Float       @default(0) // Sum of SKU Subtotal After Discount (what customer sees)
   shippingFee             Float       @default(0)
   orderAmount             Float       @default(0) // Total after discounts (what customer paid)
+  settlementAmount        Float?      // What was actually received (from income/settlement file)
   buyerUsername           String?
   province                String?
   paymentMethod           String?

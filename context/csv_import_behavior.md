@@ -201,6 +201,19 @@ If multiple CSV files exist (e.g., `2026-03.csv` and `2026-04.csv`):
 - Orders are deduplicated by `externalOrderId` across all files
 - Safe to keep monthly CSV files in the folder
 
+### Income Files (XLSX Format)
+
+Income/settlement files (named like `income-2026-01.xlsx`) are also processed automatically:
+- Parsed from the "Order details" sheet
+- `Order/adjustment ID` column is matched against existing orders' `externalOrderId`
+- `Total settlement amount` is stored in Order.settlementAmount
+- Non-matching orders are silently skipped (common for partial months)
+
+**Import Flow:**
+1. All sales CSV/XLSX files are imported/updated
+2. All income XLSX files are processed to update settlement amounts
+3. Results include both sales imports and settlement updates
+
 ### Empty CSV Files
 
 - Ignored (no rows to process)

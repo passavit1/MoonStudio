@@ -7,6 +7,8 @@ interface SuccessfulOrdersData {
   month: string;
   count: number;
   orderIds: string[];
+  totalRevenue: number;
+  totalSettlement: number;
 }
 
 interface SuccessfulOrdersChartProps {
@@ -35,18 +37,34 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
     );
   }
 
-  const maxCount = Math.max(...data.map(d => d.count));
-  const chartHeight = 200;
-  const barWidth = Math.max(30, Math.min(60, 1200 / data.length));
-  const barSpacing = Math.max(60, 1200 / data.length);
-  const svgWidth = data.length * barSpacing + 40;
-  const bottomPadding = data.length > 6 ? 60 : 40;
+  const maxRevenue = Math.max(...data.map(d => Math.max(d.totalRevenue, d.totalSettlement, d.count * 100)));
+  const chartHeight = 250;
+  const barWidth = Math.max(18, Math.min(30, 1200 / (data.length * 3.5)));
+  const groupSpacing = Math.max(120, 1200 / data.length);
+  const svgWidth = data.length * groupSpacing + 40;
+  const bottomPadding = data.length > 6 ? 80 : 60;
 
   return (
     <>
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
         <h3 className="font-bold text-gray-900 mb-2">Successful Orders by Month</h3>
-        <p className="text-xs text-gray-500 mb-6">Orders successfully shipped without cancellation • Click bars to view details</p>
+        <p className="text-xs text-gray-500 mb-4">Orders successfully shipped without cancellation • Click bars to view details</p>
+
+        {/* Legend */}
+        <div className="flex gap-6 mb-6 flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-gray-400"></div>
+            <span className="text-xs text-gray-600">Total Orders</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-green-500"></div>
+            <span className="text-xs text-gray-600">Total Customer Paid</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded bg-blue-500"></div>
+            <span className="text-xs text-gray-600">Total Settlement Received</span>
+          </div>
+        </div>
 
         <div className="flex gap-6 items-end overflow-x-auto">
           <svg
@@ -70,43 +88,103 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
 
             {/* Bars */}
             {data.map((item, idx) => {
-              const barHeight = (item.count / maxCount) * chartHeight;
-              const x = idx * barSpacing + 20;
-              const y = chartHeight - barHeight;
+              const countBarHeight = (item.count * 100 / maxRevenue) * chartHeight;
+              const revenueBarHeight = (item.totalRevenue / maxRevenue) * chartHeight;
+              const settlementBarHeight = (item.totalSettlement / maxRevenue) * chartHeight;
+              const groupX = idx * groupSpacing + 20;
+              const countX = groupX;
+              const revenueX = groupX + barWidth + 4;
+              const settlementX = groupX + (barWidth + 4) * 2;
+              const countY = chartHeight - countBarHeight;
+              const revenueY = chartHeight - revenueBarHeight;
+              const settlementY = chartHeight - settlementBarHeight;
               const isSelected = selectedMonth?.month === item.month;
 
               return (
                 <g key={idx} onClick={() => setSelectedMonth(item)} style={{ cursor: 'pointer' }}>
-                  {/* Bar */}
+                  {/* Total Orders Bar (Gray) */}
                   <rect
-                    x={x}
-                    y={y}
+                    x={countX}
+                    y={countY}
                     width={barWidth}
-                    height={barHeight}
-                    fill={isSelected ? '#16A34A' : '#10B981'}
-                    rx="4"
+                    height={countBarHeight}
+                    fill={isSelected ? '#374151' : '#9CA3AF'}
+                    rx="3"
                   />
 
-                  {/* Value label inside bar (at top) */}
-                  <text
-                    x={x + barWidth / 2}
-                    y={y + 18}
-                    textAnchor="middle"
-                    fontSize={data.length > 10 ? "12" : "14"}
-                    fontWeight="bold"
-                    fill="white"
-                  >
-                    {item.count}
-                  </text>
+                  {/* Customer Paid Bar (Green) */}
+                  <rect
+                    x={revenueX}
+                    y={revenueY}
+                    width={barWidth}
+                    height={revenueBarHeight}
+                    fill={isSelected ? '#15803D' : '#22C55E'}
+                    rx="3"
+                  />
 
-                  {/* Month label below bar */}
+                  {/* Settlement Received Bar (Blue) */}
+                  <rect
+                    x={settlementX}
+                    y={settlementY}
+                    width={barWidth}
+                    height={settlementBarHeight}
+                    fill={isSelected ? '#1E40AF' : '#3B82F6'}
+                    rx="3"
+                  />
+
+                  {/* Count value label - inside bar */}
+                  {item.count > 0 && countBarHeight > 20 && (
+                    <text
+                      x={countX + barWidth / 2}
+                      y={countY + countBarHeight / 2 + 4}
+                      textAnchor="middle"
+                      fontSize={data.length > 10 ? "8" : "9"}
+                      fontWeight="bold"
+                      fill="white"
+                      pointerEvents="none"
+                    >
+                      {item.count}
+                    </text>
+                  )}
+
+                  {/* Revenue value label - inside bar */}
+                  {item.totalRevenue > 0 && revenueBarHeight > 25 && (
+                    <text
+                      x={revenueX + barWidth / 2}
+                      y={revenueY + revenueBarHeight / 2 + 4}
+                      textAnchor="middle"
+                      fontSize={data.length > 10 ? "8" : "9"}
+                      fontWeight="bold"
+                      fill="white"
+                      pointerEvents="none"
+                    >
+                      ฿{(item.totalRevenue / 1000).toFixed(1)}k
+                    </text>
+                  )}
+
+                  {/* Settlement value label - inside bar */}
+                  {item.totalSettlement > 0 && settlementBarHeight > 25 && (
+                    <text
+                      x={settlementX + barWidth / 2}
+                      y={settlementY + settlementBarHeight / 2 + 4}
+                      textAnchor="middle"
+                      fontSize={data.length > 10 ? "8" : "9"}
+                      fontWeight="bold"
+                      fill="white"
+                      pointerEvents="none"
+                    >
+                      ฿{(item.totalSettlement / 1000).toFixed(1)}k
+                    </text>
+                  )}
+
+                  {/* Month label below bars */}
                   <text
-                    x={x + barWidth / 2}
-                    y={chartHeight + (data.length > 6 ? 35 : 20)}
+                    x={groupX + barWidth + 8}
+                    y={chartHeight + (data.length > 6 ? 45 : 25)}
                     textAnchor="middle"
-                    fontSize={data.length > 10 ? "10" : "12"}
+                    fontSize={data.length > 10 ? "9" : "11"}
                     fill="#6b7280"
-                    transform={data.length > 6 ? `rotate(45 ${x + barWidth / 2} ${chartHeight + 35})` : undefined}
+                    transform={data.length > 6 ? `rotate(45 ${groupX + barWidth + 8} ${chartHeight + 45})` : undefined}
                   >
                     {item.month}
                   </text>
@@ -128,6 +206,18 @@ export function SuccessfulOrdersChart({ data, currentMonthSuccesses }: Successfu
             <div>
               <p className="text-xs font-semibold uppercase text-gray-500 tracking-wider">Successful Orders This Month</p>
               <p className="text-2xl font-bold text-emerald-600 mt-1">{currentMonthSuccesses}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500 tracking-wider">Total Customer Paid</p>
+              <p className="text-2xl font-bold text-green-600 mt-1">
+                ฿{(data.reduce((sum, d) => sum + d.totalRevenue, 0) / 1000).toFixed(1)}k
+              </p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase text-gray-500 tracking-wider">Total Settlement Received</p>
+              <p className="text-2xl font-bold text-blue-600 mt-1">
+                ฿{(data.reduce((sum, d) => sum + d.totalSettlement, 0) / 1000).toFixed(1)}k
+              </p>
             </div>
           </div>
         </div>

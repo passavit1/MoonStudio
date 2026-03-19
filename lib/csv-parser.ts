@@ -22,6 +22,15 @@ export interface TikTokOrderRow {
   "SKU Seller Discount": string;
 }
 
+export interface IncomeRow {
+  "Order/adjustment ID": string;
+  "Type": string;
+  "Order created time": string;
+  "Order settled time": string;
+  "Currency": string;
+  "Total settlement amount": string;
+}
+
 export const parseTikTokCSV = (filePath: string): Promise<TikTokOrderRow[]> => {
   return new Promise((resolve, reject) => {
     try {
@@ -87,10 +96,57 @@ export const parseTikTokDate = (dateStr: string): Date | null => {
   return isNaN(date.getTime()) ? null : date;
 };
 
-export const parseCurrency = (val: string): number => {
-  if (!val) return 0;
+export const parseCurrency = (val: string | number): number => {
+  if (!val && val !== 0) return 0;
+  // Handle both string and numeric values from Excel
+  const strVal = String(val).trim();
   // Remove currency symbols and commas
-  const cleaned = val.replace(/[^\d.-]/g, "");
+  const cleaned = strVal.replace(/[^\d.-]/g, "");
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
+};
+
+export const parseIncomeFile = (filePath: string): Promise<IncomeRow[]> => {
+  return new Promise((resolve, reject) => {
+    try {
+      const isXlsx = filePath.endsWith(".xlsx") || filePath.endsWith(".xlsm");
+
+      if (isXlsx) {
+        try {
+          // Read file buffer first
+          const fileBuffer = fs.readFileSync(filePath);
+          const workbook = XLSX.read(fileBuffer, { type: "buffer" });
+
+          // Look for "Order details" sheet, fallback to first sheet
+          let sheetName = workbook.SheetNames.find(name =>
+            name.toLowerCase().includes("order details") ||
+            name.toLowerCase().includes("orderdetails")
+          );
+          if (!sheetName) {
+            sheetName = workbook.SheetNames[0];
+          }
+          const worksheet = workbook.Sheets[sheetName];
+          const data = XLSX.utils.sheet_to_json<any>(worksheet);
+
+          // Normalize column names by trimming whitespace
+          const normalizedData: IncomeRow[] = data.map(row => {
+            const normalized: any = {};
+            for (const [key, value] of Object.entries(row)) {
+              const trimmedKey = key.trim();
+              normalized[trimmedKey] = value;
+            }
+            return normalized;
+          });
+
+          resolve(normalizedData);
+        } catch (xlsxError) {
+          reject(new Error(`Failed to parse income XLSX file: ${filePath}. Error: ${(xlsxError as Error).message}`));
+        }
+      } else {
+        reject(new Error(`Income files must be in XLSX format: ${filePath}`));
+      }
+    } catch (error) {
+      reject(new Error(`Error processing income file: ${filePath}. Error: ${(error as Error).message}`));
+    }
+  });
 };

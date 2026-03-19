@@ -7,6 +7,7 @@ export async function GET() {
     const orders = await prisma.order.findMany({
       select: {
         orderAmount: true,
+        settlementAmount: true,
         createdTime: true,
         status: true,
         cancelationType: true,
@@ -21,6 +22,7 @@ export async function GET() {
     const monthlyData: {
       [key: string]: {
         totalRevenue: number;
+        totalSettlement: number;
         totalOrders: number;
         completedOrders: number;
         pendingOrders: number; // On the way to customer
@@ -41,6 +43,7 @@ export async function GET() {
       if (!monthlyData[monthKey]) {
         monthlyData[monthKey] = {
           totalRevenue: 0,
+          totalSettlement: 0,
           totalOrders: 0,
           completedOrders: 0,
           pendingOrders: 0,
@@ -58,6 +61,9 @@ export async function GET() {
       }
 
       monthlyData[monthKey].totalRevenue += order.orderAmount;
+      if (order.settlementAmount !== null && order.settlementAmount !== undefined) {
+        monthlyData[monthKey].totalSettlement += order.settlementAmount;
+      }
       monthlyData[monthKey].totalOrders += 1;
 
       // Lost orders take PRIORITY (shipped & cancelled)
@@ -84,6 +90,7 @@ export async function GET() {
     // Calculate totals
     const totals = {
       totalRevenue: data.reduce((sum, m) => sum + m.totalRevenue, 0),
+      totalSettlement: data.reduce((sum, m) => sum + m.totalSettlement, 0),
       totalOrders: data.reduce((sum, m) => sum + m.totalOrders, 0),
       completedOrders: data.reduce((sum, m) => sum + m.completedOrders, 0),
       pendingOrders: data.reduce((sum, m) => sum + m.pendingOrders, 0),

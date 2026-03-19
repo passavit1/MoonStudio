@@ -7,6 +7,7 @@ import { ArrowLeft, BarChart3, TrendingUp, X } from "lucide-react";
 interface MonthlyData {
   month: string;
   totalRevenue: number;
+  totalSettlement: number;
   totalOrders: number;
   completedOrders: number;
   pendingOrders: number;
@@ -15,6 +16,7 @@ interface MonthlyData {
 
 interface Totals {
   totalRevenue: number;
+  totalSettlement: number;
   totalOrders: number;
   completedOrders: number;
   pendingOrders: number;
@@ -126,16 +128,28 @@ export default function ReportsPage() {
           <>
             {/* Summary Cards */}
             {totals && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
                   <div className="flex items-center gap-2 text-green-600 mb-2 font-semibold text-xs uppercase tracking-wider">
                     <TrendingUp size={16} />
-                    Total Revenue
+                    Customer Paid
                   </div>
                   <div className="text-2xl font-bold text-gray-900">
                     {formatCurrency(totals.totalRevenue)}
                   </div>
                   <p className="text-xs text-gray-500 mt-2">All time</p>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+                  <div className="flex items-center gap-2 text-blue-600 mb-2 font-semibold text-xs uppercase tracking-wider">
+                    💰 Settlement
+                  </div>
+                  <div className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(totals.totalSettlement)}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-2">
+                    After platform fees ({((totals.totalSettlement / totals.totalRevenue) * 100).toFixed(1)}%)
+                  </p>
                 </div>
 
                 <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
@@ -205,7 +219,10 @@ export default function ReportsPage() {
                           Month
                         </th>
                         <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                          Revenue
+                          Customer Paid
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                          Settlement Received
                         </th>
                         <th className="px-6 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider">
                           Total Orders
@@ -235,6 +252,9 @@ export default function ReportsPage() {
                           </td>
                           <td className="px-6 py-4 text-sm text-right font-bold text-green-600">
                             {formatCurrency(month.totalRevenue)}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-right font-bold text-blue-600">
+                            {formatCurrency(month.totalSettlement)}
                           </td>
                           <td className="px-6 py-4 text-sm text-center text-gray-600">
                             {month.totalOrders.toLocaleString()}
@@ -271,7 +291,15 @@ export default function ReportsPage() {
 
                 <div className="pl-4 border-l-2 border-blue-300 space-y-2">
                   <div>
-                    <strong>💰 Revenue:</strong> Sum of Order Amount (what customer paid) from all valid orders
+                    <strong>💚 Customer Paid:</strong> Sum of Order Amount (what customers paid) from all valid orders
+                  </div>
+
+                  <div>
+                    <strong>💙 Settlement Received:</strong> Sum of Settlement Amount (what you actually received after platform fees) from all valid orders
+                  </div>
+
+                  <div>
+                    <strong>📊 Difference:</strong> The gap between Customer Paid and Settlement Received is deducted by the platform as fees, commissions, and other charges
                   </div>
 
                   <div>
