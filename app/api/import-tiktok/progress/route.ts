@@ -26,10 +26,43 @@ export function GET() {
       console.log("[ProgressAPI] Sending initial state:", initialState.status);
       controller.enqueue(encoder.encode(`data: ${JSON.stringify(initialState)}\n\n`));
 
-      // If no sync in progress, close immediately
+      // If no sync in progress, wait a bit before closing (sync might be initializing)
       if (!currentProgress || currentProgress.status !== "processing") {
-        console.log("[ProgressAPI] No active sync, closing stream");
-        setTimeout(() => controller.close(), 100);
+        console.log("[ProgressAPI] No active sync initially, waiting for sync to start...");
+
+        // Wait up to 3 seconds for sync to start
+        let waitCount = 0;
+        const waitInterval = setInterval(() => {
+          waitCount++;
+          const progress = getProgress();
+
+          if (progress && progress.status === "processing") {
+            console.log("[ProgressAPI] Sync started, continuing stream");
+            clearInterval(waitInterval);
+
+            // Subscribe to progress updates
+            const unsubscribe = subscribe((p) => {
+              try {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(p)}\n\n`));
+                if (p.status !== "processing") {
+                  setTimeout(() => controller.close(), 500);
+                }
+              } catch (error) {
+                console.error("[ProgressAPI] Error streaming:", error);
+                controller.close();
+              }
+            });
+
+            return () => unsubscribe();
+          }
+
+          if (waitCount >= 30) { // 3 seconds (30 * 100ms)
+            console.log("[ProgressAPI] Timeout waiting for sync, closing stream");
+            clearInterval(waitInterval);
+            setTimeout(() => controller.close(), 100);
+          }
+        }, 100);
+
         return;
       }
 
