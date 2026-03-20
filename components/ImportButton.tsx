@@ -2,6 +2,7 @@
 
 import { useState, useRef } from "react";
 import { Upload, Loader2, CheckCircle, Clock, X, Trash2, AlertCircle } from "lucide-react";
+import { AddExternalOrderForm } from "./AddExternalOrderForm";
 
 type FileStatus = "pending" | "processing" | "done";
 
@@ -146,13 +147,14 @@ export function ImportButton() {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
+        <AddExternalOrderForm />
         <button
           onClick={handleImport}
           disabled={syncing}
           className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50"
         >
           {syncing ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
-          {syncing ? "Importing..." : "Import TikTok Data"}
+          {syncing ? "Syncing..." : "Sync"}
         </button>
 
         <button
@@ -173,7 +175,7 @@ export function ImportButton() {
 
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-gray-900">Syncing TikTok Data</h2>
+              <h2 className="text-lg font-bold text-gray-900">Syncing Data</h2>
               <div className="flex gap-2">
                 {syncStatus === "processing" && (
                   <button

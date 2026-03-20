@@ -76,3 +76,10 @@ model ReconciliationDismissal {
   note        String?
   dismissedAt DateTime @default(now())
 }
+
+model Product {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // Product name
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

@@ -22,19 +22,26 @@ export async function POST() {
 
 async function runSync() {
   try {
-    const dataDir = path.join(process.cwd(), "data", "tiktok");
+    const tiktokDir = path.join(process.cwd(), "data", "tiktok");
+    const externalDir = path.join(process.cwd(), "data", "external");
 
-    // Separate sales and income files
-    const allFiles = fs.readdirSync(dataDir).filter((f) => f.endsWith(".csv") || f.endsWith(".xlsx"));
+    // Separate sales and income files from TikTok
+    const allFiles = fs.readdirSync(tiktokDir).filter((f) => f.endsWith(".csv") || f.endsWith(".xlsx"));
     const salesFiles = allFiles.filter((f) => !f.startsWith("income-"));
     const incomeFiles = allFiles.filter((f) => f.startsWith("income-"));
 
-    if (salesFiles.length === 0 && incomeFiles.length === 0) {
-      return NextResponse.json({ error: "No CSV or XLSX files found in /data/tiktok" }, { status: 404 });
+    // Get external JSON files
+    let externalFiles: string[] = [];
+    if (fs.existsSync(externalDir)) {
+      externalFiles = fs.readdirSync(externalDir).filter((f) => f.endsWith(".json"));
+    }
+
+    if (salesFiles.length === 0 && incomeFiles.length === 0 && externalFiles.length === 0) {
+      return NextResponse.json({ error: "No CSV, XLSX, or JSON files found in /data" }, { status: 404 });
     }
 
     // Initialize progress tracking
-    const allFilesForProgress = [...salesFiles, ...incomeFiles];
+    const allFilesForProgress = [...salesFiles, ...incomeFiles, ...externalFiles.map((f) => `[External] ${f}`)];
     initializeProgress(allFilesForProgress.length, allFilesForProgress);
 
     // Ensure TikTok platform exists
@@ -71,7 +78,7 @@ async function runSync() {
         }
 
         startFileProgress(file);
-        const filePath = path.join(dataDir, file);
+        const filePath = path.join(tiktokDir, file);
       const rows = await parseTikTokCSV(filePath);
 
       // Group rows by Order ID (one order can have multiple items)
@@ -93,6 +100,18 @@ async function runSync() {
         const itemSubtotal = orderRows.reduce((sum, row) => {
           return sum + parseCurrency(row["SKU Subtotal After Discount"]);
         }, 0);
+
+        // Create products if they don't exist
+        for (const row of orderRows) {
+          const productName = row["Product Name"];
+          if (productName) {
+            await prisma.product.upsert({
+              where: { name: productName },
+              update: {},
+              create: { name: productName },
+            });
+          }
+        }
 
         // Calculate real product value (before discounts)
         const subtotalBeforeDiscount = orderRows.reduce((sum, row) => {
@@ -198,7 +217,7 @@ async function runSync() {
         }
 
         startFileProgress(file);
-        const filePath = path.join(dataDir, file);
+        const filePath = path.join(tiktokDir, file);
       const rows = await parseIncomeFile(filePath);
 
       let settlementsInFile = 0;
@@ -232,17 +251,118 @@ async function runSync() {
       updateProgress(file); // Mark file as done after all processing is complete
     }
 
+    // Step 3: Import external orders from JSON files
+    let totalExternalOrders = 0;
+    const externalPlatform = await prisma.platform.upsert({
+      where: { name: "External" },
+      update: {},
+      create: { name: "External" },
+    });
+
+    for (const file of externalFiles) {
+      // Check if sync was cancelled
+      if (isSyncCancelled()) {
+        failProgress("Sync cancelled by user");
+        return NextResponse.json({ error: "Sync cancelled by user" }, { status: 400 });
+      }
+
+      startFileProgress(`[External] ${file}`);
+      const filePath = path.join(externalDir, file);
+
+      try {
+        const jsonContent = fs.readFileSync(filePath, "utf-8");
+        const externalOrder = JSON.parse(jsonContent);
+
+        const order = await prisma.order.upsert({
+          where: { externalOrderId: externalOrder.orderId },
+          update: {
+            status: externalOrder.status,
+            subtotal: externalOrder.subtotal,
+            shippingFee: externalOrder.shippingFee,
+            orderAmount: externalOrder.orderAmount,
+            buyerUsername: externalOrder.customerName,
+            paymentMethod: externalOrder.paymentMethod,
+            createdTime: new Date(externalOrder.createdAt),
+          },
+          create: {
+            platformId: externalPlatform.id,
+            externalOrderId: externalOrder.orderId,
+            status: externalOrder.status,
+            subtotal: externalOrder.subtotal,
+            shippingFee: externalOrder.shippingFee,
+            orderAmount: externalOrder.orderAmount,
+            buyerUsername: externalOrder.customerName,
+            paymentMethod: externalOrder.paymentMethod,
+            createdTime: new Date(externalOrder.createdAt),
+          },
+        });
+
+        // Create or update order items
+        for (let i = 0; i < externalOrder.items.length; i++) {
+          const item = externalOrder.items[i];
+
+          // Create product if it doesn't exist
+          if (item.productName) {
+            await prisma.product.upsert({
+              where: { name: item.productName },
+              update: {},
+              create: { name: item.productName },
+            });
+          }
+
+          await prisma.orderItem.upsert({
+            where: {
+              orderId_skuId: {
+                orderId: order.id,
+                skuId: `${externalOrder.orderId}-${i}`,
+              },
+            },
+            update: {
+              productName: item.productName,
+              quantity: item.quantity,
+              originalPrice: item.price,
+              subtotal: item.quantity * item.price,
+            },
+            create: {
+              orderId: order.id,
+              skuId: `${externalOrder.orderId}-${i}`,
+              productName: item.productName,
+              quantity: item.quantity,
+              originalPrice: item.price,
+              subtotal: item.quantity * item.price,
+            },
+          });
+        }
+
+        totalExternalOrders++;
+        totalOrdersImported++;
+        totalItemsImported++;
+
+        // Track file import
+        await prisma.fileImportMetadata.upsert({
+          where: { fileName: file },
+          update: { lastImportedAt: new Date(), recordCount: 1, status: "COMPLETED" },
+          create: { fileName: file, recordCount: 1, status: "COMPLETED" },
+        });
+      } catch (error) {
+        console.error(`Error processing external file ${file}:`, error);
+      }
+
+      updateProgress(`[External] ${file}`); // Mark file as done
+    }
+
     completeProgress();
 
     return NextResponse.json({
       success: true,
-      message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} sales files. Updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files. Skipped ${filesSkipped} already-imported files.`,
+      message: `Imported ${totalOrdersImported} orders and ${totalItemsImported} items from ${salesFiles.length} TikTok sales files, ${externalFiles.length} external orders, and updated ${totalSettlementsUpdated} settlement amounts from ${incomeFiles.length} income files. Skipped ${filesSkipped} already-imported files.`,
       stats: {
         ordersImported: totalOrdersImported,
         itemsImported: totalItemsImported,
         settlementsUpdated: totalSettlementsUpdated,
+        externalOrdersImported: totalExternalOrders,
         filesSkipped,
-        totalFilesProcessed: salesFiles.length + incomeFiles.length,
+        totalFilesProcessed: salesFiles.length + incomeFiles.length + externalFiles.length,
       },
     });
   } catch (error: any) {
